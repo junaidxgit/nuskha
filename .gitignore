@@ -16,3 +16,7 @@ env/
 .env
 .DS_Store
 Thumbs.db
+
+# scratch
+*.html
+wp.json
