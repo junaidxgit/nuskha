@@ -52,29 +52,32 @@ entirely. `--check coldrif` proves the point: zero NSQ hits, one WHO hit.
 
 ```
 pipeline/fetch_nsq.py          download CDSCO NSQ PDFs, 2024-01..2025-06   (Tier 1)
-pipeline/parse_nsq.py          bordered-table extraction -> 1,598 records   (Tier 1)
+pipeline/parse_nsq.py          bordered-table layout -> 1,598 records       (Tier 1)
+pipeline/fetch_nsq_recent.py   download CDSCO NSQ PDFs, 2025-07..2026-07   (Tier 1)
+pipeline/parse_nsq_v2.py       cell-rect layout -> 1,993 records            (Tier 1)
 pipeline/fetch_who.py          download WHO Medical Product Alerts          (Tier 2)
 pipeline/parse_who.py          WHO text -> products / manufacturers / dates (Tier 2)
 pipeline/build_db.py           combined SQLite index + tiered lookup
-pipeline/fetch_nsq_recent.py   download CDSCO NSQ PDFs, 2025-07..2026-07   (Tier 1)
-pipeline/parse_nsq_v2.py       parser for the 2025-07+ layout  -- INCOMPLETE
 ```
 
-**Tier 1 — CDSCO NSQ, 2024-01 → 2025-06:** 45 PDFs, 342 pages, **1,598 records**,
-1,197 distinct manufacturers.
+**Tier 1 — CDSCO NSQ, 2024-01 → 2026-07:** 70 PDFs, **3,591 records**, 2024: 699 ·
+2025: 1,831 · 2026: 1,061.
 
-| field | filled |
-|---|---|
-| manufacturer | 100.0% |
-| product_name | 99.9% |
-| nsq_reason | 99.7% |
-| reported_by | 99.6% |
-| batch_no | 99.4% |
-| expiry_date | 97.2% |
-| mfg_date | 96.9% |
+| field | 2024–2025 set | 2025–2026 set |
+|---|---|---|
+| product_name | 99.9% | **100.0%** |
+| batch_no | 99.4% | **100.0%** |
+| manufacturer | 100.0% | 98.6% |
+| nsq_reason | 99.7% | 98.6% |
+| reported_by | 99.6% | 98.6% |
+| expiry_date | 97.2% | 98.3% |
+| mfg_date | 96.9% | **98.4%** |
 
-**Tier 1 — CDSCO NSQ, 2025-07 → 2026-07:** 25 PDFs downloaded and hashed, covering
-13 months. **Not yet parsed** — see the gap below.
+**Independently validated.** The parser's monthly totals were checked against
+trade-press counts published independently of this work — **7 of 8 months match
+exactly** (2025-07: 143, 2025-08: 94, 2025-10: 211, 2025-11: 205, 2025-12: 167,
+2026-06: 159, 2026-07: 239). The one difference, 2026-05 at 159 vs 157, is the two
+spurious-drug records in that file, which are not NSQ samples.
 
 **Tier 2 — WHO alerts:** 15 alerts (2024 → 2026), full text extracted, 5 mentioning
 India. 11 have product names extracted, 4 have manufacturer names. Covers N°5/2025,
@@ -88,9 +91,10 @@ PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe
 
 $PY pipeline/fetch_nsq.py --since 2024-01        # ~4 min, 45 PDFs
 $PY pipeline/parse_nsq.py                        # ~3 min
+$PY pipeline/fetch_nsq_recent.py --since 2025-07 # ~1 min, 25 PDFs
+$PY pipeline/parse_nsq_v2.py                     # ~5 min
 $PY pipeline/fetch_who.py --since 2024           # ~1 min, 15 alerts
 $PY pipeline/parse_who.py                        # structured fields
-$PY pipeline/fetch_nsq_recent.py --since 2025-07 # ~1 min, 25 PDFs
 $PY pipeline/build_db.py --check "coldrif"       # tiered lookup
 $PY pipeline/build_db.py --check "atorvastatin"
 ```
@@ -112,6 +116,19 @@ $ python pipeline/build_db.py --check "coldrif"
     date    13 October 2025   india=yes
     products COLDRIF; Respifresh TR
     makers   Sresan Pharmaceutical; Rednex Pharmaceuticals; Shape Pharma
+```
+
+And a query that reaches into 2026:
+
+```
+$ python pipeline/build_db.py --check "atorvastatin"
+
+[TIER 1] CDSCO NSQ batch alerts - recorded by the regulator
+  Atorvastatin Tablets IP 10mg
+    batch AV26072   mfg Apr-2026  exp Sep-2027
+    maker  Eurokem Laboratories Pvt Ltd, C-25, SIDCO Pharmaceutical Complex, Alathur
+    reason Dissolution
+    source state / state alert 2026-07; lab: State Lab
 ```
 
 ---
@@ -144,17 +161,36 @@ source it used (`month_source`) so a publish date is never presented as an alert
 - Some PDFs are letter-spaced ("T e l a n g a n a"), so runs of single-character
   tokens are rejoined.
 
+## The July-2025 format change
+
+The layout changed at July 2025 and the 2024-era parser returns **zero** records against
+it. Three things defeat the obvious approaches:
+
+1. `find_tables()` returns ~19 tables per page, because every cell carries its own border
+   and the table fragments into cell-sized pieces. Page 1 reports 18 columns, page 2
+   reports 16, and the indices do not align.
+2. pdfplumber cell tuples are `(x0, top, x1, bottom)` and carry **no text**, so cells must
+   be cropped to be read. Cropping cells taken from the *fragmented tables* duplicates
+   text, because those bboxes overlap.
+3. Banding records from the S.No anchor's own `top` cuts records in half — the S.No is
+   vertically centred in a 178pt-tall row.
+
+**The unlock:** every record is a single row of ten tall, *non-overlapping* cell
+rectangles. For record 1 of the May-2026 alert they all span `top=74.2 → bottom=252.1`
+with x-ranges `72.4-114.2, 114.9-234.8, 235.2-288.8, 289.6-365.9, 366.7-415.6,
+416.3-508.5, 509.3-588.5, 589.2-649.0, 649.7-709.5, 710.2-770.0`.
+
+So the row grouping is given directly by the drawing rather than inferred: filter
+`page.rects` to cell-sized rectangles, group by identical vertical extent, sort by x, and
+crop each cell. Because the cells tile the row exactly, nothing overlaps and the text
+comes out clean. `parse_nsq_v2.py` implements this.
+
+One collision to know about: the source's own "Alert Month" column is also called
+`alert_month`, which clobbers the numeric metadata field of the same name. It is renamed
+`alert_period` in the parsed record.
+
 ## Known gaps
 
-- **The 2025-07+ NSQ layout is not parsed.** The documents are downloaded (25 PDFs,
-  13 months, hashed) but `parse_nsq_v2.py` does not produce trustworthy records yet.
-  The format changed materially: borders fragment each cell into its own tiny table
-  (~19 tables/page), page 1's header table has 18 columns while page 2's data table has
-  16, pdfplumber cell tuples carry **no text** so every cell must be cropped and read,
-  and the crops overlap so text comes back duplicated ("Absorbent Cotton Wool IP
-  Absorbent Cotton AWbosoolr IbPe nt Cotton"). It currently yields 341 partly-garbled
-  records from 25 files. **Deliberately kept in a separate output file** so it cannot
-  contaminate the clean dataset. This is the single most valuable remaining task.
 - **Provenance is a mirror.** The 2025-07+ PDFs come from trade-press mirrors of the
   CDSCO documents, because the CDSCO endpoint moved and the Aug-2025 notice announcing
   it is a scanned image with no extractable text. Every manifest entry records
@@ -165,6 +201,9 @@ source it used (`month_source`) so a publish date is never presented as an alert
   missing, so the agent cannot yet answer "what should this cost". Discovery lead: the
   same WordPress REST API that exposed the NSQ mirrors also carries NPPA posts
   ("NPPA fixed retail price of 39 formulations: July 2026"), which is a clean way in.
+- `alert_type` labelling is inconsistent between the two fetchers: the 2024 set tags
+  state alerts as `nsq`, the 2025+ set tags them `state`. `series` is correct in both.
+  Cosmetic, but worth normalising before the UI consumes it.
 - WHO extraction is pattern-based and incomplete: 11 of 15 alerts yield product names,
   4 yield manufacturers, and N°5/2025 returns COLDRIF and Respifresh TR but misses
   ReLife. Conservative by design — it returns nothing rather than inventing a name.
@@ -172,7 +211,8 @@ source it used (`month_source`) so a publish date is never presented as an alert
   use a different table shape.
 - Manufacturer normalisation is deliberately lossy (strips "Pvt/Ltd/Pharma/...").
   Retrieval only, never display.
-- Occasional source typos survive ("Mec obalamin", "Lhore" for Lahore).
+- Occasional source typos and hyphenation survive ("Pharmaceuti cals", "MISBRANDE D",
+  "Mec obalamin", "Lhore" for Lahore). These are defects in the source PDFs.
 
 ## Guardrails (non-negotiable)
 

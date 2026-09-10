@@ -27,6 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NSQ_JSONL = ROOT / "data" / "processed" / "nsq_records.jsonl"
+NSQ_RECENT_JSONL = ROOT / "data" / "processed" / "nsq_records_recent.jsonl"
 WHO_JSONL = ROOT / "data" / "processed" / "who_alerts.jsonl"
 WHO_STRUCT = ROOT / "data" / "processed" / "who_alerts_structured.jsonl"
 DB = ROOT / "data" / "processed" / "medlens.db"
@@ -54,22 +55,38 @@ def norm_key(value: str) -> str:
 
 
 def load_nsq(con: sqlite3.Connection) -> int:
-    if not NSQ_JSONL.exists():
+    """Load both NSQ datasets.
+
+    nsq_records.jsonl        2024-01..2025-06, bordered-table layout
+    nsq_records_recent.jsonl 2025-07..2026-07, cell-rect layout
+
+    They are separate files because the layouts differ, but they belong in one
+    table: to a user asking about a medicine there is no seam between them.
+    """
+    rows = []
+    for path in (NSQ_JSONL, NSQ_RECENT_JSONL):
+        if path.exists():
+            rows.extend(json.loads(l) for l in path.open(encoding="utf-8"))
+    if not rows:
         return 0
-    rows = [json.loads(l) for l in NSQ_JSONL.open(encoding="utf-8")]
+
+    def g(r, key, default=None):
+        v = r.get(key, default)
+        return v if v is not None else default
+
     con.executemany(
         "INSERT INTO nsq_records (source_file, alert_type, series, alert_year,"
         " alert_month, page, sno, product_name, product_key, batch_no, mfg_date,"
         " expiry_date, mfg_ym, expiry_ym, manufacturer, maker_key, nsq_reason,"
         " reported_by) VALUES (" + ",".join("?" * 18) + ")",
         [(
-            r.get("source_file"), r.get("alert_type"), r.get("series"),
-            r.get("alert_year"), r.get("alert_month"), r.get("page"),
-            r.get("sno"), r.get("product_name"), norm_key(r.get("product_name", "")),
-            r.get("batch_no"), r.get("mfg_date"), r.get("expiry_date"),
-            r.get("mfg_ym"), r.get("expiry_ym"),
-            r.get("manufacturer"), norm_key(r.get("manufacturer", "")),
-            r.get("nsq_reason"), r.get("reported_by"),
+            g(r, "source_file"), g(r, "alert_type"), g(r, "series"),
+            g(r, "alert_year"), g(r, "alert_month"), g(r, "page"),
+            g(r, "sno"), g(r, "product_name", ""), norm_key(g(r, "product_name", "")),
+            g(r, "batch_no"), g(r, "mfg_date"), g(r, "expiry_date"),
+            g(r, "mfg_ym"), g(r, "expiry_ym"),
+            g(r, "manufacturer", ""), norm_key(g(r, "manufacturer", "")),
+            g(r, "nsq_reason"), g(r, "reported_by"),
         ) for r in rows])
     return len(rows)
 
