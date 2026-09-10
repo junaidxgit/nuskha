@@ -28,6 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 NSQ_JSONL = ROOT / "data" / "processed" / "nsq_records.jsonl"
 WHO_JSONL = ROOT / "data" / "processed" / "who_alerts.jsonl"
+WHO_STRUCT = ROOT / "data" / "processed" / "who_alerts_structured.jsonl"
 DB = ROOT / "data" / "processed" / "medlens.db"
 
 NOISE = re.compile(
@@ -74,18 +75,36 @@ def load_nsq(con: sqlite3.Connection) -> int:
 
 
 def load_who(con: sqlite3.Connection) -> int:
-    if not WHO_JSONL.exists():
+    """Load WHO alerts, preferring the structured file when it exists so the
+    lookup can name which product matched rather than returning a whole doc."""
+    if WHO_STRUCT.exists():
+        rows = [json.loads(l) for l in WHO_STRUCT.open(encoding="utf-8")]
+    elif WHO_JSONL.exists():
+        rows = [json.loads(l) for l in WHO_JSONL.open(encoding="utf-8")]
+    else:
         return 0
-    rows = [json.loads(l) for l in WHO_JSONL.open(encoding="utf-8")]
-    con.executemany(
-        "INSERT INTO who_alerts (alert_label, alert_number, alert_year, news_url,"
-        " pdf_url, local_path, mentions_india, text, text_key) VALUES (?,?,?,?,?,?,?,?,?)",
-        [(
+
+    payload = []
+    for r in rows:
+        products = r.get("products") or []
+        makers = r.get("manufacturers") or []
+        payload.append((
             r.get("alert_label"), r.get("alert_number"), r.get("alert_year"),
             r.get("news_url"), r.get("pdf_url"), r.get("local_path"),
             int(bool(r.get("mentions_india"))), r.get("text", ""),
             norm_key(r.get("text", "")),
-        ) for r in rows])
+            "; ".join(products),
+            "; ".join(makers),
+            r.get("alert_date"),
+            norm_key(" ".join(products)),
+            norm_key(" ".join(makers)),
+        ))
+
+    con.executemany(
+        "INSERT INTO who_alerts (alert_label, alert_number, alert_year, news_url,"
+        " pdf_url, local_path, mentions_india, text, text_key, products,"
+        " manufacturers, alert_date, product_key, maker_key)"
+        " VALUES (" + ",".join("?" * 14) + ")", payload)
     return len(rows)
 
 
@@ -107,7 +126,8 @@ def build() -> sqlite3.Connection:
         CREATE TABLE who_alerts (
             id INTEGER PRIMARY KEY, alert_label TEXT, alert_number INTEGER,
             alert_year INTEGER, news_url TEXT, pdf_url TEXT, local_path TEXT,
-            mentions_india INTEGER, text TEXT, text_key TEXT)
+            mentions_india INTEGER, text TEXT, text_key TEXT, products TEXT,
+            manufacturers TEXT, alert_date TEXT, product_key TEXT, maker_key TEXT)
     """)
 
     n_nsq = load_nsq(con)
@@ -168,17 +188,22 @@ def check(con: sqlite3.Connection, term: str, limit: int) -> None:
 
     wwhere, wparams = like_where("text_key", term)
     who = con.execute(
-        f"SELECT alert_label, alert_year, alert_number, news_url, mentions_india"
-        f" FROM who_alerts WHERE {wwhere} ORDER BY alert_year DESC LIMIT ?",
+        f"SELECT alert_label, alert_year, alert_number, news_url, mentions_india,"
+        f" products, manufacturers, alert_date FROM who_alerts WHERE {wwhere}"
+        f" ORDER BY alert_year DESC LIMIT ?",
         (*wparams, limit)).fetchall()
 
     print(f"\n[TIER 2] WHO Medical Product Alerts - published by WHO")
     print(f"         {len(who)} matching alert(s)")
     if not who:
         print("         none on record")
-    for (label, yr, num, url, india) in who:
+    for (label, yr, num, url, india, products, makers, adate) in who:
         print(f"\n  {label[:92]}")
-        print(f"    {yr}  india={'yes' if india else 'no'}")
+        print(f"    date    {adate or yr}   india={'yes' if india else 'no'}")
+        if products:
+            print(f"    products {products[:86]}")
+        if makers:
+            print(f"    makers   {makers[:86]}")
         print(f"    {url}")
 
     print(f"\n{'-' * 78}")

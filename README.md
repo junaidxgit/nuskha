@@ -51,14 +51,17 @@ entirely. `--check coldrif` proves the point: zero NSQ hits, one WHO hit.
 ## What is built
 
 ```
-pipeline/fetch_nsq.py   download CDSCO NSQ alert PDFs      (Tier 1)
-pipeline/parse_nsq.py   PDF tables -> structured records   (Tier 1)
-pipeline/fetch_who.py   download WHO Medical Product Alerts (Tier 2)
-pipeline/build_db.py    combined SQLite index + tiered lookup
+pipeline/fetch_nsq.py          download CDSCO NSQ PDFs, 2024-01..2025-06   (Tier 1)
+pipeline/parse_nsq.py          bordered-table extraction -> 1,598 records   (Tier 1)
+pipeline/fetch_who.py          download WHO Medical Product Alerts          (Tier 2)
+pipeline/parse_who.py          WHO text -> products / manufacturers / dates (Tier 2)
+pipeline/build_db.py           combined SQLite index + tiered lookup
+pipeline/fetch_nsq_recent.py   download CDSCO NSQ PDFs, 2025-07..2026-07   (Tier 1)
+pipeline/parse_nsq_v2.py       parser for the 2025-07+ layout  -- INCOMPLETE
 ```
 
-**Tier 1 — CDSCO NSQ:** 45 PDFs, 342 pages, **1,598 records**, 1,197 distinct
-manufacturers, 2024-01 → 2025-06.
+**Tier 1 — CDSCO NSQ, 2024-01 → 2025-06:** 45 PDFs, 342 pages, **1,598 records**,
+1,197 distinct manufacturers.
 
 | field | filled |
 |---|---|
@@ -70,27 +73,32 @@ manufacturers, 2024-01 → 2025-06.
 | expiry_date | 97.2% |
 | mfg_date | 96.9% |
 
-**Tier 2 — WHO alerts:** **15 alerts** (2024 → 2026), full text extracted, 5 mentioning
-India. Covers N°5/2025, which names COLDRIF (Sresan Pharmaceutical), Respifresh TR
-(Rednex Pharmaceuticals) and ReLife (Shape Pharma).
+**Tier 1 — CDSCO NSQ, 2025-07 → 2026-07:** 25 PDFs downloaded and hashed, covering
+13 months. **Not yet parsed** — see the gap below.
+
+**Tier 2 — WHO alerts:** 15 alerts (2024 → 2026), full text extracted, 5 mentioning
+India. 11 have product names extracted, 4 have manufacturer names. Covers N°5/2025,
+which names COLDRIF (Sresan Pharmaceutical), Respifresh TR (Rednex Pharmaceuticals)
+and ReLife (Shape Pharma).
 
 ## Run it
 
 ```bash
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
 
-$PY pipeline/fetch_nsq.py --since 2024-01    # ~4 min, 45 PDFs
-$PY pipeline/parse_nsq.py                    # ~3 min
-$PY pipeline/fetch_who.py --since 2024       # ~1 min, 15 alerts
-$PY pipeline/build_db.py --check "coldrif"   # tiered lookup
+$PY pipeline/fetch_nsq.py --since 2024-01        # ~4 min, 45 PDFs
+$PY pipeline/parse_nsq.py                        # ~3 min
+$PY pipeline/fetch_who.py --since 2024           # ~1 min, 15 alerts
+$PY pipeline/parse_who.py                        # structured fields
+$PY pipeline/fetch_nsq_recent.py --since 2025-07 # ~1 min, 25 PDFs
+$PY pipeline/build_db.py --check "coldrif"       # tiered lookup
 $PY pipeline/build_db.py --check "atorvastatin"
 ```
 
-Outputs: `data/raw/nsq/*.pdf`, `data/raw/who/*.pdf`, `data/raw/nsq_manifest.json`
-(sha256 per file), `data/processed/nsq_records.jsonl`, `data/processed/who_alerts.jsonl`,
-`data/processed/medlens.db`.
+Outputs: `data/raw/nsq/*.pdf`, `data/raw/nsq_recent/*.pdf`, `data/raw/who/*.pdf`,
+manifests with sha256 per file, and `data/processed/` JSONL + `medlens.db`.
 
-Sample output for a query that only Tier 2 catches:
+Sample output — the query only Tier 2 catches:
 
 ```
 $ python pipeline/build_db.py --check "coldrif"
@@ -101,6 +109,9 @@ $ python pipeline/build_db.py --check "coldrif"
 [TIER 2] WHO Medical Product Alerts - published by WHO
          1 matching alert(s)
   Medical Product Alert N°5/2025: Substandard (contaminated) oral liquid medicines
+    date    13 October 2025   india=yes
+    products COLDRIF; Respifresh TR
+    makers   Sresan Pharmaceutical; Rednex Pharmaceuticals; Shape Pharma
 ```
 
 ---
@@ -135,24 +146,33 @@ source it used (`month_source`) so a publish date is never presented as an alert
 
 ## Known gaps
 
-- **The CDSCO index stops at mid-2025.** `/Notifications/nsq-drugs/` lists 225 alerts
-  spanning 2013–2025, but the newest NSQ alert on it is 2025-06. Yet monthly NSQ alerts are
-  known to exist for 2026 (239 samples in July 2026, 157 in May 2026 per trade press), and
-  CDSCO published a notice in Aug 2025 about a *new dedicated link* for NSQ alerts. **The
-  current endpoint has not been located.** Tier 2 (WHO) does cover 2026, so recent events
-  are partially visible — but Tier 1 has a blind spot exactly where recent failures live.
-  This is the highest-priority gap.
-- 16 NSQ files yield no records: the "spurious drugs" and older "other" alerts use a
-  different table shape. ~5 spurious records parsed; the rest need their own mapper.
+- **The 2025-07+ NSQ layout is not parsed.** The documents are downloaded (25 PDFs,
+  13 months, hashed) but `parse_nsq_v2.py` does not produce trustworthy records yet.
+  The format changed materially: borders fragment each cell into its own tiny table
+  (~19 tables/page), page 1's header table has 18 columns while page 2's data table has
+  16, pdfplumber cell tuples carry **no text** so every cell must be cropped and read,
+  and the crops overlap so text comes back duplicated ("Absorbent Cotton Wool IP
+  Absorbent Cotton AWbosoolr IbPe nt Cotton"). It currently yields 341 partly-garbled
+  records from 25 files. **Deliberately kept in a separate output file** so it cannot
+  contaminate the clean dataset. This is the single most valuable remaining task.
+- **Provenance is a mirror.** The 2025-07+ PDFs come from trade-press mirrors of the
+  CDSCO documents, because the CDSCO endpoint moved and the Aug-2025 notice announcing
+  it is a scanned image with no extractable text. Every manifest entry records
+  `provenance: "mirror"` and the source URL, and each file is hashed. Before shipping,
+  resolve the CDSCO primary or re-host and say so. A tool making safety claims must be
+  able to prove its documents are unaltered.
+- **The price layer is not built.** NPPA ceiling prices and Jan Aushadhi MRP are still
+  missing, so the agent cannot yet answer "what should this cost". Discovery lead: the
+  same WordPress REST API that exposed the NSQ mirrors also carries NPPA posts
+  ("NPPA fixed retail price of 39 formulations: July 2026"), which is a clean way in.
+- WHO extraction is pattern-based and incomplete: 11 of 15 alerts yield product names,
+  4 yield manufacturers, and N°5/2025 returns COLDRIF and Respifresh TR but misses
+  ReLife. Conservative by design — it returns nothing rather than inventing a name.
+- 16 pre-2025 NSQ files yield no records: the "spurious drugs" and older "other" alerts
+  use a different table shape.
 - Manufacturer normalisation is deliberately lossy (strips "Pvt/Ltd/Pharma/...").
-  Good for candidate retrieval, **not** for display or exact matching. "Pulse Pharma"
-  and "Pulse Pharmaceuticals" collapse together, which is usually right and
-  occasionally wrong.
-- WHO alerts are stored as full text and searched with LIKE, not extracted into
-  product/manufacturer fields. `--check` finds them, but the agent cannot yet say
-  *which* product in an alert matched.
+  Retrieval only, never display.
 - Occasional source typos survive ("Mec obalamin", "Lhore" for Lahore).
-- `mfg_date` for one NSQ record shows "NM".
 
 ## Guardrails (non-negotiable)
 
