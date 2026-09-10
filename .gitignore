@@ -1,0 +1,18 @@
+# data
+data/raw/
+data/processed/*.db
+data/processed/*.db-*
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# local
+.workbuddy-ai/
+.env
+.DS_Store
+Thumbs.db
