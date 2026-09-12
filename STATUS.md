@@ -52,6 +52,25 @@ Nearest hard deadline: **AWS credits form, Sep 12 00:30 IST (~23 hours).**
   Comparing raw figures put the floor ABOVE the ceiling. `parse_unit()` normalises both
   and only compares matching unit kinds, with a printed sanity verdict.
 
+### The agent — built
+- [x] `medlens/queries.py` — the three query functions, DB-backed
+- [x] **Strength matching** (`strengths_of`) — stops "metformin 250 mg" matching a 500 mg
+  product. This was the flagged highest-priority fix.
+- [x] **Combination-product detection** (`is_combination`) — strength matching alone still
+  returned "Aspirin & Atorvastatin Capsules" as the ceiling for plain atorvastatin. Single
+  ingredient now ranks first, and a WARNING is attached when only a combination matches.
+- [x] `medlens/tools.py` — Strands `@tool` wrappers; schema verified
+  (`tool.tool_spec["inputSchema"]["json"]`, 3 tools registered)
+- [x] `medlens/agent.py` — `build_agent()` + a system prompt enforcing the framing rules
+- [x] `medlens/cli.py` — deterministic CLI (`price` / `check` / `report` / `json`) + `ask`
+- [x] `medlens/mock_model.py` — scripted model; **the real Strands loop runs offline**
+  with no AWS credentials. Verified trace: `user → assistant(toolUse ×2) →
+  user(toolResult ×2) → assistant(text)`.
+- [x] `docs/agent.md` — how to run, and the API gotchas for wiring a real model
+- [x] `check coldrif` now returns **both tiers** — the CDSCO batch record (batch SR-13,
+  reason "Adulterated", state alert 2025-10) *and* WHO N°5/2025. The recency gap closing
+  is what put the batch itself on screen.
+
 ### Submission scaffolding
 
 - [x] `LICENSE` (MIT) — required in the repo About section

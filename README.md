@@ -6,7 +6,24 @@ A user types the salt on their prescription. The agent finds every same-composit
 option, shows what the law says it may cost, and flags whether any of the
 manufacturers involved have a recorded quality failure.
 
-**Status: data layer only.** No agent, no UI, no Strands code yet.
+**Status: data layer + agent.** No UI yet.
+
+```
+pipeline/            data ingestion (see below)
+medlens/             the agent
+  queries.py         the three query functions
+  tools.py           Strands @tool wrappers
+  agent.py           build_agent() + system prompt
+  mock_model.py      scripted model, runs the real loop with no credentials
+  cli.py             deterministic CLI + agent mode
+docs/agent.md        how to run the agent
+```
+
+```bash
+PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
+$PY -m medlens.cli price atorvastatin 10mg     # no credentials needed
+$PY -m medlens.cli check coldrif
+```
 
 ---
 
