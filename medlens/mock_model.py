@@ -145,7 +145,11 @@ class ScriptedModel(Model):
                 lines.append(self._fmt_quality(data))
 
         body = "\n\n".join(x for x in lines if x)
-        return body or "No matching records found."
+        # Guardrail 4: the disclaimer is persistent, including on this path.
+        body += ("\n\nNot medical advice. Composition match is not proven "
+                 "therapeutic equivalence. Never change a prescribed medicine "
+                 "without asking the prescriber.")
+        return body
 
     @staticmethod
     def _fmt_price(d: dict) -> str:
@@ -178,6 +182,9 @@ class ScriptedModel(Model):
         out.append(f"  Tier 2 WHO alerts: {t2['count']}")
         for r in t2["records"][:3]:
             out.append(f"    {r['alert_label'][:66]}")
+        # the batch-specificity caveat applies whether or not anything was found
+        out.append("  An NSQ finding is batch-specific and is not a statement "
+                   "about the company.")
         if not t1["count"] and not t2["count"]:
             out.append("  Absence of a record is not evidence of quality - "
                        "only sampled batches are tested.")

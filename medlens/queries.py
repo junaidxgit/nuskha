@@ -124,14 +124,14 @@ def find_alternatives(salt: str, strength: str = "", limit: int = 10,
     try:
         where, params = _like("generic_key", salt)
         ja = [dict(r) for r in con.execute(
-            f"SELECT generic_name, unit_size, mrp_inr, drug_code"
+            f"SELECT generic_name, unit_size, mrp_inr, drug_code, provenance"
             f" FROM janaushadhi_prices WHERE ({where}) AND mrp_inr > 0",
             params).fetchall()]
 
         where2, params2 = _like("formulation_key", salt)
         nppa = [dict(r) for r in con.execute(
             f"SELECT formulation, composition, unit, manufacturer,"
-            f" retail_price_inr, notice_ref, notice_year, notice_month"
+            f" retail_price_inr, notice_ref, notice_year, notice_month, provenance"
             f" FROM nppa_prices WHERE {where2}", params2).fetchall()]
     finally:
         con.close()
@@ -196,6 +196,7 @@ def get_price(salt: str, strength: str = "", limit: int = 6,
             "notice_period": (f"{row['notice_year']}-{row['notice_month']:02d}"
                               if row["notice_year"] else None),
             "is_combination": row["is_combination"],
+            "provenance": row.get("provenance"),
         }
         break
 
@@ -207,6 +208,7 @@ def get_price(salt: str, strength: str = "", limit: int = 6,
             "price_inr": row["mrp_inr"],
             "drug_code": row["drug_code"],
             "is_combination": row["is_combination"],
+            "provenance": row.get("provenance"),
         }
         break
 
@@ -216,6 +218,20 @@ def get_price(salt: str, strength: str = "", limit: int = 6,
         "Both figures are strength-matched; if either is null, no same-strength "
         "price was found and no comparison is offered.",
     ]
+    # Honesty about where the figures came from. The price tables were obtained
+    # from a trade-press mirror of the NPPA notifications and a third-party host
+    # of the Jan Aushadhi list, not from the issuing bodies directly. The source
+    # policy says authority levels must never blend, so a mirrored figure must
+    # not be presented as though it were pulled from the regulator.
+    mirrored = [n for n, p in (("NPPA ceiling", ceiling and ceiling.get("provenance")),
+                               ("Jan Aushadhi floor", floor and floor.get("provenance")))
+                if p == "mirror"]
+    if mirrored:
+        caveats.append(
+            "PROVENANCE: " + " and ".join(mirrored) + " come from a third-party "
+            "mirror of the official document, not from the issuing body. Verify "
+            "against the primary source before relying on it."
+        )
     if ceiling and ceiling["is_combination"]:
         caveats.append(
             "WARNING: the ceiling shown is a COMBINATION product that contains "

@@ -20,3 +20,6 @@ Thumbs.db
 # scratch
 *.html
 wp.json
+
+# review scratch
+.audit/

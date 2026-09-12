@@ -63,9 +63,9 @@ def show_price(salt: str, strength: str = "") -> None:
     elif c and f:
         print("\n  No per-unit comparison: the two sources quote different units.")
 
-    warnings = [x for x in r["caveats"] if x.startswith("WARNING")]
-    for w in warnings:
-        print(f"\n  ! {w}")
+    for cav in r["caveats"]:
+        if cav.startswith(("WARNING", "PROVENANCE")):
+            print(f"\n  ! {cav}")
 
     print(f"\n  NPPA prices exclude GST. Charging above the ceiling for a scheduled")
     print(f"  formulation is illegal. Not medical advice - composition match is not")
@@ -79,6 +79,11 @@ def show_quality(name: str) -> None:
 
     t1 = r["tier1_nsq_batch_alerts"]
     print(f"\n[TIER 1] {t1['source']}")
+    # a state-lab alert is a state finding, not a central CDSCO one
+    state_recs = [x for x in t1["records"] if x.get("series") == "state"]
+    if state_recs:
+        print("         (some records below are STATE laboratory findings, "
+              "not central CDSCO)")
     print(f"         {t1['count']} matching record(s)")
     if not t1["count"]:
         print("         none on record")
@@ -87,8 +92,9 @@ def show_quality(name: str) -> None:
         print(f"    batch  {rec['batch_no'] or '-'}")
         print(f"    maker  {rec['manufacturer'][:66]}")
         print(f"    reason {rec['nsq_reason'][:66]}")
-        print(f"    source {rec['alert_type']}/{rec['series']} "
-              f"{rec['alert_year']}-{rec['alert_month']:02d}")
+        who_lab = "state" if rec["series"] == "state" else "central"
+        print(f"    source {who_lab} lab alert {rec['alert_year']}-{rec['alert_month']:02d}")
+        print(f"    file   {rec['source_file']}  (source URL in the manifest)")
 
     t2 = r["tier2_who_alerts"]
     print(f"\n[TIER 2] {t2['source']}")

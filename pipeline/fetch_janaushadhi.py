@@ -141,10 +141,10 @@ def main() -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", encoding="utf-8") as fh:
-        for r in rows:
+        for r in uniq:
             fh.write(json.dumps({**r, "provenance": "mirror"}, ensure_ascii=False) + "\n")
 
-    print(f"\n{len(rows):,} rows, {len(uniq):,} distinct drug codes")
+    print(f"\n{len(uniq):,} rows written ({len(rows) - len(uniq):,} duplicate drug codes dropped)")
     if rows:
         print(f"MRP range: Rs {min(r['mrp_inr'] for r in rows)}"
               f" - {max(r['mrp_inr'] for r in rows)}")
