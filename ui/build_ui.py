@@ -663,10 +663,14 @@ def main() -> int:
             "character and silently breaks the JS regexes."
         )
     OUT.write_text(html, encoding="utf-8")
+    # Second copy for GitHub Pages (served from /docs on main).
+    pages = ROOT / "docs" / "index.html"
+    pages.write_text(html, encoding="utf-8")
     print(f"nsq {len(payload['nsq']):,} | who {len(payload['who'])} | "
           f"nppa {len(payload['nppa'])} | janaushadhi {len(payload['ja']):,} | "
           f"salt index {len(payload['salts'])}")
     print(f"-> {OUT.relative_to(ROOT)}  ({OUT.stat().st_size / 1024:.0f} KB, self-contained)")
+    print(f"-> {pages.relative_to(ROOT)}  (GitHub Pages copy)")
     return 0
 
 

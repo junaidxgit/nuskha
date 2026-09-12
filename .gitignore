@@ -19,6 +19,8 @@ Thumbs.db
 
 # scratch
 *.html
+!ui/index.html
+!docs/index.html
 wp.json
 
 # review scratch
