@@ -37,6 +37,9 @@ $PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"   # real agent
 
 ## The UI
 
+**Live: https://junaidxgit.github.io/nuskha/** — served by GitHub Pages from `docs/index.html`
+on `main`; regenerating with `ui/build_ui.py` rewrites both copies.
+
 `ui/index.html` is a single self-contained file — data embedded, no server, no build step.
 Open it directly, or drop it on any static host for the live demo link. A demo that needs a
 port and a working CORS setup is a demo that can fail on stage.

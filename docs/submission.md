@@ -3,36 +3,22 @@
 **Deadline: Sep 15, 05:30 IST** (Sep 14, 17:00 PT). Submit **Sep 14 evening**, not the last
 hour.
 
-Repo is ready to push: branch `main`, working tree clean, 10 commits dated Sep 10–12, author
-set to `junaidxgit <officiallyunofficial007@gmail.com>`.
+**Repo is live: https://github.com/junaidxgit/nuskha** — public, pushed from here with the
+portable `gh` in `.tools/` (the keyring credential became readable on the second attempt).
 
 ---
 
-## 1. Push the repo
+## 1. Push the repo — DONE
 
-`gh` is not installed on this machine, so create the repo in the browser:
-
-1. github.com → **New repository**
-2. Name: `nuskha` (or your preference). **Public.** No README, no .gitignore, no licence —
-   the repo already has all three.
-3. Copy the URL, then:
-
-```bash
-cd "C:/Users/offic/WorkBuddy AI/2026-09-10-22-06-33"
-git remote add origin https://github.com/<your-username>/nuskha.git
-git push -u origin main
-```
-
-Git will prompt for credentials. Use a **personal access token** as the password
-(GitHub → Settings → Developer settings → Personal access tokens), not your account password.
-
-**Then, on the repo page:**
-- [ ] Add a **description**: *"Composition-first medicine pricing and regulatory quality
-      records for India. Built on Strands Agents."*
-- [ ] Add **topics**: `strands-agents`, `aws`, `healthcare`, `india`, `agent`
-- [ ] Confirm the **About** panel shows **MIT license**. If it doesn't, GitHub has not
-      detected `LICENSE` — check the filename has no extension.
-- [ ] Add your surname to the copyright line in `LICENSE` first.
+- [x] Pushed. `main` tracks `origin/main`, in sync.
+- [x] **Description** set: "What is on your prescription, and what it should cost: NPPA price
+      ceiling + Janaushadhi generic floor + CDSCO batch quality record, joined."
+- [x] **Topics** set: agent, aws, cdsco, india, janaushadhi, medicine, nppa, open-data,
+      public-health, price-transparency, strands-agents, healthcare
+- [x] **MIT license** confirmed detected by GitHub (`license.spdx_id: MIT` via API).
+- [x] Architecture diagram embedded in the README top; verified GitHub-safe.
+- [ ] **Add your surname to the copyright line in `LICENSE`** — currently "Copyright (c) 2026
+      Jun". Tell the agent your surname and it will commit + push, or edit on github.com.
 
 ## 2. AWS Builder ID
 
@@ -47,13 +33,15 @@ See `docs/aws-setup.md`. Two steps: credentials, then model access.
 - [ ] `python -m nuskha.cli check-bedrock` reports **Ready**
 - [ ] `python -m nuskha.cli ask "what should atorvastatin 10mg cost?"` returns a real answer
 
-## 4. Live demo link (optional, scores higher)
+## 4. Live demo link (optional, scores higher) — DONE
 
-`ui/index.html` is self-contained — no server, no build. Any static host works:
+**https://junaidxgit.github.io/nuskha/** — GitHub Pages, served from `/docs` on `main`.
+`ui/build_ui.py` regenerates both `ui/index.html` and `docs/index.html` together.
 
-- [ ] GitHub Pages: Settings → Pages → deploy from `main`, `/docs` folder — move
-      `ui/index.html` to `docs/index.html`, or point Pages at the root and rename
-- [ ] Or drag the file onto netlify.com/drop
+- [x] GitHub Pages enabled via API, source `main` / `/docs`
+- [x] Both HTML copies are tracked in git (the blanket `*.html` gitignore rule had been
+      silently excluding them — fixed with explicit `!` exceptions)
+- [ ] Verify the URL loads in an incognito window after the first deployment finishes
 - [ ] Paste the URL into the submission
 
 ## 5. Demo video — required, max 5 minutes
