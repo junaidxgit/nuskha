@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from medlens.queries import check_quality_record, find_alternatives, get_price
 
@@ -132,6 +133,96 @@ def show_report(salt: str, strength: str = "") -> None:
             show_quality(maker)
 
 
+def check_bedrock(region: str = "") -> int:
+    """Diagnose whether the real agent can run against Amazon Bedrock.
+
+    Checks credentials, region, and model access in that order, because each
+    failure has a different fix and a generic "access denied" tells you nothing.
+    Never prints credential values - only whether they resolve.
+    """
+    import os
+
+    print("\nBedrock readiness")
+    print(RULE)
+    ok = True
+
+    try:
+        import boto3
+        from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
+    except ImportError:
+        print("  boto3 is missing. Install it: pip install boto3")
+        return 1
+
+    # 1. credentials
+    env_keys = [k for k in ("AWS_ACCESS_KEY_ID", "AWS_PROFILE",
+                            "AWS_SHARED_CREDENTIALS_FILE") if os.environ.get(k)]
+    cred_file = Path.home() / ".aws" / "credentials"
+    # fall back to the region Strands itself defaults to, so the diagnostic can
+    # reach the model-access check instead of dying on NoRegionError
+    sess = boto3.Session(region_name=region or os.environ.get("AWS_REGION")
+                         or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2")
+    try:
+        creds = sess.get_credentials()
+        frozen = creds.get_frozen_credentials() if creds else None
+    except Exception as exc:
+        frozen = None
+        print(f"  credentials  ERROR: {exc}")
+        ok = False
+
+    if frozen and frozen.access_key:
+        src = sess.get_credentials().method if hasattr(sess.get_credentials(), "method") else "?"
+        print(f"  credentials  found (source: {src})")
+        if env_keys:
+            print(f"               env vars set: {', '.join(env_keys)}")
+    else:
+        print("  credentials  NOT FOUND")
+        print(f"               looked in env vars and {cred_file}")
+        print("               fix: run `aws configure`, or set AWS_ACCESS_KEY_ID /")
+        print("                    AWS_SECRET_ACCESS_KEY, or write ~/.aws/credentials")
+        ok = False
+
+    # 2. region
+    resolved = sess.region_name or "us-west-2 (Strands default)"
+    print(f"  region       {resolved}")
+
+    # 3. model access
+    model_id = "global.anthropic.claude-sonnet-4-6"
+    try:
+        client = sess.client("bedrock")
+        resp = client.list_foundation_models(byOutputModality="TEXT")
+        ids = [m["modelId"] for m in resp.get("modelSummaries", [])]
+        anthropic = [i for i in ids if "anthropic" in i]
+        print(f"  model access {len(ids)} text models visible, "
+              f"{len(anthropic)} Anthropic")
+        if anthropic:
+            print(f"               e.g. {anthropic[0]}")
+        print(f"  target       {model_id}")
+        if not anthropic:
+            print("               no Anthropic models visible - request access in the")
+            print("               Bedrock console: Model access -> Claude models")
+            ok = False
+    except NoCredentialsError:
+        print("  model access skipped (no credentials)")
+        ok = False
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "?")
+        print(f"  model access DENIED ({code})")
+        print("               fix: Bedrock console -> Model access -> request Claude access")
+        ok = False
+    except BotoCoreError as exc:
+        print(f"  model access ERROR: {type(exc).__name__}: {exc}")
+        ok = False
+
+    print()
+    if ok:
+        print("  Ready. Run the real agent:")
+        print('    python -m medlens.cli ask "what should atorvastatin 10mg cost?"')
+    else:
+        print("  Not ready. The deterministic commands still work and need no AWS:")
+        print("    python -m medlens.cli price atorvastatin 10mg")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="medlens")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -154,6 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     p5.add_argument("salt")
     p5.add_argument("strength", nargs="?", default="")
 
+    p6 = sub.add_parser("check-bedrock", help="diagnose AWS/Bedrock readiness")
+    p6.add_argument("--region", default="")
+
     args = ap.parse_args(argv)
 
     if args.cmd == "price":
@@ -164,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
         show_report(args.salt, args.strength)
     elif args.cmd == "json":
         print(json.dumps(get_price(args.salt, args.strength), indent=2))
+    elif args.cmd == "check-bedrock":
+        return check_bedrock(args.region)
     elif args.cmd == "ask":
         try:
             from medlens.agent import ask

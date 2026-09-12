@@ -19,6 +19,9 @@ medlens/             the agent
 ui/build_ui.py       generates the UI
 ui/index.html        generated - self-contained, opens from the filesystem
 docs/agent.md        how to run the agent
+docs/aws-setup.md    Bedrock credentials and model access
+docs/submission.md   the submission checklist
+docs/architecture.svg the architecture diagram
 ```
 
 ```bash
@@ -26,6 +29,8 @@ PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe
 $PY -m medlens.cli price atorvastatin 10mg     # no credentials needed
 $PY -m medlens.cli check coldrif
 $PY ui/build_ui.py                             # regenerate ui/index.html
+$PY -m medlens.cli check-bedrock               # diagnose AWS/Bedrock readiness
+$PY -m medlens.cli ask "what should atorvastatin 10mg cost?"   # real agent
 ```
 
 ## The UI
