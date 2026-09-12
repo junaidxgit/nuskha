@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" width="960" height="720" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif">
+<title>MedLens architecture</title>
+<desc>Four official data sources are ingested into a SQLite index, which backs three query functions exposed as Strands tools to an agent, a CLI and a self-contained web UI.</desc>
+
+<rect width="960" height="720" fill="#ffffff"/>
+
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M1 1L9 5L1 9" fill="none" stroke="#8a8a86" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<text x="40" y="42" font-size="20" font-weight="600" fill="#1c1e18">MedLens — architecture</text>
+<text x="40" y="64" font-size="13" fill="#6b6b66">What is on your prescription, and what it should cost. AWS Agents for Humans, Everyday Agents track.</text>
+
+<!-- ============ 1. SOURCES ============ -->
+<text x="40" y="104" font-size="11" font-weight="600" letter-spacing="1.1" fill="#8a8a86">OFFICIAL SOURCES</text>
+
+<g>
+  <rect x="40" y="116" width="205" height="66" rx="9" fill="#e1f5ee" stroke="#1d9e75" stroke-width="1"/>
+  <text x="56" y="139" font-size="13" font-weight="600" fill="#085041">CDSCO NSQ alerts</text>
+  <text x="56" y="157" font-size="11.5" fill="#0f6e56">70 monthly PDFs, batch level</text>
+  <text x="56" y="172" font-size="11.5" fill="#0f6e56">2024-01 → 2026-07</text>
+</g>
+<g>
+  <rect x="260" y="116" width="205" height="66" rx="9" fill="#e1f5ee" stroke="#1d9e75" stroke-width="1"/>
+  <text x="276" y="139" font-size="13" font-weight="600" fill="#085041">WHO Medical Product Alerts</text>
+  <text x="276" y="157" font-size="11.5" fill="#0f6e56">recalls, suspensions,</text>
+  <text x="276" y="172" font-size="11.5" fill="#0f6e56">contamination events</text>
+</g>
+<g>
+  <rect x="480" y="116" width="205" height="66" rx="9" fill="#faeeda" stroke="#ba7517" stroke-width="1"/>
+  <text x="496" y="139" font-size="13" font-weight="600" fill="#633806">NPPA ceiling prices</text>
+  <text x="496" y="157" font-size="11.5" fill="#854f0b">S.O. notifications, the</text>
+  <text x="496" y="172" font-size="11.5" fill="#854f0b">legally binding maximum</text>
+</g>
+<g>
+  <rect x="700" y="116" width="220" height="66" rx="9" fill="#faeeda" stroke="#ba7517" stroke-width="1"/>
+  <text x="716" y="139" font-size="13" font-weight="600" fill="#633806">Jan Aushadhi MRP list</text>
+  <text x="716" y="157" font-size="11.5" fill="#854f0b">government generic prices,</text>
+  <text x="716" y="172" font-size="11.5" fill="#854f0b">the cheap compliant floor</text>
+</g>
+
+<path d="M142 186 L142 216" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M362 186 L362 216" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M582 186 L582 216" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M810 186 L810 216" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ============ 2. INGESTION ============ -->
+<text x="40" y="208" font-size="11" font-weight="600" letter-spacing="1.1" fill="#8a8a86">INGESTION — pipeline/</text>
+
+<rect x="40" y="220" width="880" height="86" rx="11" fill="#f1efe8" stroke="#b4b2a9" stroke-width="1"/>
+<text x="60" y="245" font-size="12.5" font-weight="600" fill="#2c2c2a">fetch_* → parse_* → build_db.py</text>
+<text x="60" y="266" font-size="11.5" fill="#5f5e5a">Two PDF layouts handled: bordered tables (2024–2025) and cell-rectangle rows (2025-07 onward).</text>
+<text x="60" y="284" font-size="11.5" fill="#5f5e5a">Every source file hashed; provenance recorded per row. Mirrored documents are flagged, not silently trusted.</text>
+<text x="852" y="266" font-size="11.5" fill="#5f5e5a" text-anchor="end">3,591 · 15 · 349 · 1,904</text>
+<text x="852" y="284" font-size="11" fill="#8a8a86" text-anchor="end">rows per source</text>
+
+<path d="M480 308 L480 338" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ============ 3. INDEX ============ -->
+<rect x="300" y="342" width="360" height="58" rx="11" fill="#e6f1fb" stroke="#378add" stroke-width="1"/>
+<text x="480" y="366" font-size="13.5" font-weight="600" fill="#042c53" text-anchor="middle">medlens.db — SQLite</text>
+<text x="480" y="386" font-size="11.5" fill="#185fa5" text-anchor="middle">four tables, kept separate by authority tier</text>
+
+<path d="M480 402 L480 432" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ============ 4. QUERY LAYER ============ -->
+<text x="40" y="426" font-size="11" font-weight="600" letter-spacing="1.1" fill="#8a8a86">QUERY LAYER — medlens/queries.py</text>
+
+<g>
+  <rect x="40" y="436" width="278" height="78" rx="9" fill="#eeedfe" stroke="#7f77dd" stroke-width="1"/>
+  <text x="58" y="459" font-size="12.5" font-weight="600" fill="#26215c">find_alternatives(salt, strength, form)</text>
+  <text x="58" y="478" font-size="11.5" fill="#534ab7">same composition, same dose, same form</text>
+  <text x="58" y="496" font-size="11.5" fill="#534ab7">combinations ranked below single ingredients</text>
+</g>
+<g>
+  <rect x="340" y="436" width="278" height="78" rx="9" fill="#eeedfe" stroke="#7f77dd" stroke-width="1"/>
+  <text x="358" y="459" font-size="12.5" font-weight="600" fill="#26215c">get_price(salt, strength, form)</text>
+  <text x="358" y="478" font-size="11.5" fill="#534ab7">NPPA ceiling vs Jan Aushadhi floor,</text>
+  <text x="358" y="496" font-size="11.5" fill="#534ab7">normalised per unit before comparing</text>
+</g>
+<g>
+  <rect x="640" y="436" width="280" height="78" rx="9" fill="#eeedfe" stroke="#7f77dd" stroke-width="1"/>
+  <text x="658" y="459" font-size="12.5" font-weight="600" fill="#26215c">check_quality_record(name)</text>
+  <text x="658" y="478" font-size="11.5" fill="#534ab7">Tier 1 CDSCO and Tier 2 WHO,</text>
+  <text x="658" y="496" font-size="11.5" fill="#534ab7">returned separately, never merged</text>
+</g>
+
+<rect x="40" y="524" width="880" height="30" rx="8" fill="#f1efe8" stroke="#b4b2a9" stroke-width="1"/>
+<text x="56" y="544" font-size="11.5" fill="#444441">medlens/units.py — shared by the ETL and the query layer: unit parsing, strength signatures, dosage-form mapping</text>
+
+<path d="M480 554 L480 584" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ============ 5. AGENT ============ -->
+<rect x="180" y="588" width="600" height="52" rx="11" fill="#fbeaf0" stroke="#d4537e" stroke-width="1"/>
+<text x="480" y="611" font-size="13" font-weight="600" fill="#4b1528" text-anchor="middle">Strands Agents agent — medlens/tools.py, agent.py</text>
+<text x="480" y="630" font-size="11.5" fill="#993556" text-anchor="middle">three @tool wrappers · system prompt enforces the framing rules · Bedrock by default</text>
+
+<!-- ============ 6. SURFACES ============ -->
+<path d="M330 640 L250 664" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M630 640 L710 664" fill="none" stroke="#8a8a86" stroke-width="1.4" marker-end="url(#a)"/>
+
+<g>
+  <rect x="60" y="668" width="290" height="40" rx="9" fill="#eaf3de" stroke="#639922" stroke-width="1"/>
+  <text x="205" y="686" font-size="12" font-weight="600" fill="#173404" text-anchor="middle">CLI — deterministic, no credentials</text>
+  <text x="205" y="701" font-size="11" fill="#3b6d11" text-anchor="middle">medlens/cli.py</text>
+</g>
+<g>
+  <rect x="610" y="668" width="290" height="40" rx="9" fill="#eaf3de" stroke="#639922" stroke-width="1"/>
+  <text x="755" y="686" font-size="12" font-weight="600" fill="#173404" text-anchor="middle">Web UI — one self-contained file</text>
+  <text x="755" y="701" font-size="11" fill="#3b6d11" text-anchor="middle">ui/index.html</text>
+</g>
+</svg>

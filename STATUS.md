@@ -104,6 +104,7 @@ reported monthly totals (7 of 8 exact). This is no longer the critical path.
 - [ ] **Create the public GitHub repo, push, add description + topics**
 - [ ] Confirm GitHub shows the MIT license in the About section
 - [ ] Add surname to the copyright line in `LICENSE`
+- [ ] Publish `ui/index.html` to a static host for the live demo link
 
 ### 4. The agent itself
 
