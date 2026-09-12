@@ -39,10 +39,26 @@ $PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"   # real agent
 Open it directly, or drop it on any static host for the live demo link. A demo that needs a
 port and a working CORS setup is a demo that can fail on stage.
 
+**Interaction:** instant search as you type, autocomplete over the 600 most common salts that
+actually exist in the data (suggesting one that returns nothing is worse than no suggestion),
+keyboard navigation on the dropdown, dosage-form filter, suggestion chips, a worked example on
+load, shareable URL state (`?q=atorvastatin+10mg&f=tablet`), and a visual bar showing the gap
+between the generic floor and the legal ceiling.
+
+**Design, after looking at what exists.** sahidawa.in and firstscanit.com both do instant price
+lookup well, so the lessons taken from them are the hero stat, the example visible on load, the
+chips, and a visual comparison rather than two bare numbers. Neither carries the regulatory
+record — that is the differentiator, so it gets equal billing rather than being a footnote under
+the price. They search brand names; this cannot, and the UI says so plainly instead of silently
+returning nothing.
+
 It runs the same rules as the CLI: strength matching, dosage-form filtering, combination-product
 detection, unit-normalised comparison, and the provenance caveat. The JavaScript `parseUnit` and
-`strengthsOf` are ports of `nuskha/units.py`, verified against the Python by running the page's
-own script under Node and comparing the output with the CLI.
+`strengthsOf` are ports of `nuskha/units.py`.
+
+**Verified, not assumed:** `ui/test_ui.mjs` runs the page's own script under Node and asserts the
+figures against the CLI. `node ui/test_ui.mjs` — checks the unit helpers, the autocomplete, the
+stats wiring, six query cases, and the URL state. Currently all passing.
 
 **Two traps worth knowing, both found by testing rather than reading:**
 
