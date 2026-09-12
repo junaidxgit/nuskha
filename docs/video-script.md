@@ -208,6 +208,44 @@ credits." Then run the scripted-model one-liner.)*
 - **Keep the provenance caveat on screen.** The price data comes from mirrors, not the
   issuing bodies. It is printed in the output — don't cut around it.
 
+---
+
+## If a judge pushes back
+
+**"Isn't this just Pharma Sahi Daam?"**
+NPPA's own app gives you a ceiling price. So do firstscanit and sahidawa.in. That half is
+commoditised and you should concede it immediately — then draw the line: those tools give you
+a *number*. Nuskha gives you the number **and** whether that batch is on the regulator's
+failure list. No existing tool joins the price record to the quality record, and that join is
+the product.
+
+**"Where does the quality data come from?"**
+Two tiers, kept separate. Tier 1 is CDSCO's NSQ alerts — batches that failed laboratory
+testing. Tier 2 is WHO Medical Product Alerts — recalls, suspensions, contamination. They are
+never merged, because they carry different authority.
+
+**"How do you know the parsing is right?"**
+The monthly record counts were cross-checked against totals published independently of this
+work. **Seven of eight months match exactly** — 2025-07: 143, 2025-08: 94, 2025-10: 211,
+2025-11: 205, 2025-12: 167, 2026-06: 159, 2026-07: 239. The one difference, May 2026 at 159
+against 157, is the two spurious-drug records in that file, which are not NSQ samples.
+
+**"Isn't this defamatory to the manufacturers?"**
+This is the question to be ready for, and the answer is the design. An NSQ finding is
+batch-specific — one batch, one date, one stated reason. The product never says a company is
+unsafe; it mirrors the regulator's record with the batch number, the alert month, the stated
+reason, and a link to the source PDF. It also states plainly that absence from the list is not
+evidence of quality, because only sampled batches are tested.
+
+**"What if the price data is wrong?"**
+It is a mirror, not the issuing body, and the output says so on every answer. That is a
+deliberate tradeoff, and the fix is to resolve the primary source — which is on the list.
+
+**"Does it work without AWS?"**
+Yes. The deterministic commands need no credentials at all, which is why the demo uses them.
+The agent adds natural-language routing over the same three tools; it is not load-bearing for
+correctness.
+
 ## Recording
 
 - Screen recording only. OBS, or Windows Game Bar (Win+G). 1080p is plenty.
