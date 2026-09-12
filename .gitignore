@@ -23,3 +23,6 @@ wp.json
 
 # review scratch
 .audit/
+
+# local tooling
+.tools/
