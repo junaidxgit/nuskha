@@ -6,7 +6,9 @@ A user types the salt on their prescription. The agent finds every same-composit
 option, shows what the law says it may cost, and flags whether any of the
 manufacturers involved have a recorded quality failure.
 
-**Status: data layer + agent + UI.** Architecture diagram and video outstanding.
+**Status: data layer + agent + UI.** Video outstanding.
+
+![Architecture](docs/architecture.svg)
 
 ```
 pipeline/            data ingestion (see below)
