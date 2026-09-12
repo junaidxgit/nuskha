@@ -23,11 +23,35 @@ import argparse
 import json
 import re
 import sqlite3
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NSQ_JSONL = ROOT / "data" / "processed" / "nsq_records.jsonl"
 NSQ_RECENT_JSONL = ROOT / "data" / "processed" / "nsq_records_recent.jsonl"
+NSQ_MANIFEST = ROOT / "data" / "raw" / "nsq_manifest.json"
+NSQ_RECENT_MANIFEST = ROOT / "data" / "raw" / "nsq_recent_manifest.json"
+
+
+def source_urls() -> dict[str, str]:
+    """Map a local PDF filename to the URL it was fetched from.
+
+    Tier 1 output must be able to link the original document; a local filename
+    is not a citation. The manifests already record this.
+    """
+    out: dict[str, str] = {}
+    for path in (NSQ_MANIFEST, NSQ_RECENT_MANIFEST):
+        if not path.exists():
+            continue
+        try:
+            for e in json.loads(path.read_text(encoding="utf-8")):
+                lp = e.get("local_path") or ""
+                url = e.get("source_url") or e.get("pdf_url")
+                if lp and url:
+                    out[Path(lp).name] = url
+        except Exception:
+            continue
+    return out
 WHO_JSONL = ROOT / "data" / "processed" / "who_alerts.jsonl"
 WHO_STRUCT = ROOT / "data" / "processed" / "who_alerts_structured.jsonl"
 NPPA_JSONL = ROOT / "data" / "processed" / "nppa_ceiling_prices.jsonl"
@@ -76,13 +100,16 @@ def load_nsq(con: sqlite3.Connection) -> int:
         v = r.get(key, default)
         return v if v is not None else default
 
+    urls = source_urls()
+
     con.executemany(
-        "INSERT INTO nsq_records (source_file, alert_type, series, alert_year,"
-        " alert_month, page, sno, product_name, product_key, batch_no, mfg_date,"
-        " expiry_date, mfg_ym, expiry_ym, manufacturer, maker_key, nsq_reason,"
-        " reported_by) VALUES (" + ",".join("?" * 18) + ")",
+        "INSERT INTO nsq_records (source_file, source_url, alert_type, series,"
+        " alert_year, alert_month, page, sno, product_name, product_key,"
+        " batch_no, mfg_date, expiry_date, mfg_ym, expiry_ym, manufacturer,"
+        " maker_key, nsq_reason, reported_by) VALUES (" + ",".join("?" * 19) + ")",
         [(
-            g(r, "source_file"), g(r, "alert_type"), g(r, "series"),
+            g(r, "source_file"), urls.get(g(r, "source_file", ""), ""),
+            g(r, "alert_type"), g(r, "series"),
             g(r, "alert_year"), g(r, "alert_month"), g(r, "page"),
             g(r, "sno"), g(r, "product_name", ""), norm_key(g(r, "product_name", "")),
             g(r, "batch_no"), g(r, "mfg_date"), g(r, "expiry_date"),
@@ -169,7 +196,8 @@ def build() -> sqlite3.Connection:
     con = sqlite3.connect(DB)
     con.execute("""
         CREATE TABLE nsq_records (
-            id INTEGER PRIMARY KEY, source_file TEXT, alert_type TEXT, series TEXT,
+            id INTEGER PRIMARY KEY, source_file TEXT, source_url TEXT,
+            alert_type TEXT, series TEXT,
             alert_year INTEGER, alert_month INTEGER, page INTEGER, sno TEXT,
             product_name TEXT, product_key TEXT, batch_no TEXT, mfg_date TEXT,
             expiry_date TEXT, mfg_ym TEXT, expiry_ym TEXT, manufacturer TEXT,
@@ -286,47 +314,10 @@ def check(con: sqlite3.Connection, term: str, limit: int) -> None:
     print("  sampled batches are tested. Not medical advice.")
 
 
-KIND_PATTERNS = [
-    ("tablet",  r"\btablet"),
-    ("capsule", r"\bcapsule"),
-    ("ml",      r"\bml\b|\binjection\b|\bsyrup\b|\bsuspension\b|\bsolution\b|\bdrop"),
-    ("g",       r"\bgm?\b|\bgram|\bgel\b|\bcream\b|\bointment\b|\bpowder\b"),
-    ("sachet",  r"\bsachet\b"),
-    ("patch",   r"\bpatch\b"),
-]
-
-# NPPA unit strings look like "1 Capsule", "1 ml", "1 Tablet".
-# Jan Aushadhi unit strings look like "10's", "15 g", "3 ml", "1's".
-NPPA_UNIT = re.compile(
-    r"(?P<qty>\d+(?:\.\d+)?)\s*(?P<kind>[A-Za-z%][A-Za-z/ ]*)")
-JA_UNIT = re.compile(r"(?P<qty>\d+(?:\.\d+)?)\s*(?:'?s\b)?\s*(?P<kind>[A-Za-z]*)?")
-
-
-def unit_kind(text: str, fallback: str = "") -> str:
-    """Classify a unit or product name into tablet / capsule / ml / g / ..."""
-    t = f"{text} {fallback}".lower()
-    for kind, pattern in KIND_PATTERNS:
-        if re.search(pattern, t):
-            return kind
-    return "unit"
-
-
-def parse_unit(raw: str, name: str = "") -> tuple[float, str]:
-    """Return (quantity, kind) so prices can be compared per unit.
-
-    Without this, 'Rs 3.65 per 1 Capsule' and 'Rs 8.80 per 10's' look comparable
-    and produce a nonsense range where the floor sits above the ceiling.
-    """
-    s = (raw or "").strip()
-    m = re.match(r"^(\d+(?:\.\d+)?)\s*'?s?\s*(.*)$", s)
-    if not m:
-        return 1.0, unit_kind(s, name)
-    qty = float(m.group(1)) or 1.0
-    tail = m.group(2).strip()
-    kind = unit_kind(tail, name) if tail else unit_kind(name)
-    if kind == "unit":
-        kind = unit_kind(name)
-    return qty, kind
+# Unit/strength logic lives in medlens.units so the ETL and the query layer
+# cannot drift apart. The code review found this duplicated in both files.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from medlens.units import parse_unit, unit_kind  # noqa: E402
 
 
 def price(con: sqlite3.Connection, term: str, limit: int) -> None:

@@ -33,10 +33,21 @@ NOISE = re.compile(
     re.I,
 )
 
-STRENGTH = re.compile(
-    r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>mg|mcg|µg|g|gm|ml|iu|%|w/w|w/v)\b",
-    re.I,
-)
+def norm_key(value: str) -> str:
+    """Lossy normalisation for candidate retrieval. Never used for display."""
+    if not value:
+        return ""
+    s = value.lower()
+    s = re.sub(r"[,.;:\-()/&'\"]", " ", s)
+    s = NOISE.sub(" ", s)
+    s = re.sub(r"\b\d{4,}\b", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# Unit and strength handling lives in medlens.units, shared with the ETL.
+# The code review found this duplicated in both files, and the unit-mismatch bug
+# had to be fixed twice as a result.
+from medlens.units import normalize_form, parse_unit, strengths_of  # noqa: E402
 
 # "Aspirin & Atorvastatin Capsules", "Glimepiride and Metformin", "A, B and C"
 COMBINATION = re.compile(r"\s(?:&|and)\s|,", re.I)
@@ -51,33 +62,6 @@ def is_combination(text: str) -> bool:
     of atorvastatin would be wrong.
     """
     return bool(COMBINATION.search(text or ""))
-
-
-def norm_key(value: str) -> str:
-    """Lossy normalisation for candidate retrieval. Never used for display."""
-    if not value:
-        return ""
-    s = value.lower()
-    s = re.sub(r"[,.;:\-()/&'\"]", " ", s)
-    s = NOISE.sub(" ", s)
-    s = re.sub(r"\b\d{4,}\b", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
-
-
-def strengths_of(text: str) -> set[str]:
-    """Normalised strength signature, e.g. {'10mg'} or {'500mg','125mg'}.
-
-    This is what stops 'metformin 250 mg' being compared against a 500 mg
-    product, or an atorvastatin 10 mg query against an atorvastatin 20 mg
-    ceiling. Without it the cheapest match wins regardless of dose, which is
-    both useless and unsafe.
-    """
-    out = set()
-    for m in STRENGTH.finditer(text or ""):
-        unit = m.group("unit").lower()
-        unit = {"gm": "g", "mcg": "mcg", "µg": "mcg"}.get(unit, unit)
-        out.add(f"{float(m.group('value')):g}{unit}")
-    return out
 
 
 def _connect(db: Path | None = None) -> sqlite3.Connection:
@@ -108,14 +92,17 @@ def _disclaimer() -> str:
     )
 
 
-def find_alternatives(salt: str, strength: str = "", limit: int = 10,
-                      db: Path | None = None) -> dict:
+def find_alternatives(salt: str, strength: str = "", form: str = "",
+                      limit: int = 10, db: Path | None = None) -> dict:
     """Same-composition options from the government price lists.
 
     Composition-first: `salt` is the salt on the prescription ("paracetamol",
-    "atorvastatin"), optionally with `strength` ("10mg"). Brand names are not
-    accepted as input, because mapping Indian brand names to compositions
-    requires a dataset that does not exist publicly.
+    "atorvastatin"), optionally with `strength` ("10mg") and `form` ("tablet",
+    "syrup"). Brand names are not accepted as input, because mapping Indian
+    brand names to compositions requires a dataset that does not exist publicly.
+
+    `form` matters: without it a syrup query can match tablet prices, because
+    the composition is the same and only the dosage form differs.
     """
     query = f"{salt} {strength}".strip()
     want = strengths_of(query)
@@ -144,6 +131,18 @@ def find_alternatives(salt: str, strength: str = "", limit: int = 10,
 
     strength_filtered = (len(ja) - len(ja_matched)) + (len(nppa) - len(nppa_matched))
 
+    # dosage-form filter
+    form_dropped = 0
+    want_form = normalize_form(form)
+    if want_form:
+        for coll, name_key in ((ja_matched, "generic_name"),
+                               (nppa_matched, "composition")):
+            keep = [r for r in coll
+                    if parse_unit(r.get("unit_size") or r.get("unit") or "",
+                                  r.get(name_key, ""))[1] == want_form]
+            form_dropped += len(coll) - len(keep)
+            coll[:] = keep
+
     # Annotate single-ingredient vs combination, and rank single first. A
     # combination product is a legitimate alternative to mention, but it is not
     # the price of the single-ingredient product.
@@ -160,6 +159,8 @@ def find_alternatives(salt: str, strength: str = "", limit: int = 10,
 
     return {
         "query": {"salt": salt, "strength": strength or None,
+                  "form": form or None,
+                  "form_kind": want_form,
                   "strength_signature": sorted(want) or None},
         "generic_options": ja_matched[:limit],
         "scheduled_options": nppa_matched[:limit],
@@ -169,12 +170,13 @@ def find_alternatives(salt: str, strength: str = "", limit: int = 10,
             "single_ingredient_generic": len(single_generic),
             "single_ingredient_scheduled": len(single_scheduled),
             "dropped_for_strength_mismatch": strength_filtered,
+            "dropped_for_form_mismatch": form_dropped,
         },
         "note": _disclaimer(),
     }
 
 
-def get_price(salt: str, strength: str = "", limit: int = 6,
+def get_price(salt: str, strength: str = "", form: str = "", limit: int = 6,
               db: Path | None = None) -> dict:
     """The legal ceiling (NPPA) and the government generic floor (Jan Aushadhi).
 
@@ -183,7 +185,7 @@ def get_price(salt: str, strength: str = "", limit: int = 6,
     Jan Aushadhi quotes "per 10's" - comparing those raw puts the floor above
     the ceiling.
     """
-    alt = find_alternatives(salt, strength, limit=limit, db=db)
+    alt = find_alternatives(salt, strength, form, limit=limit, db=db)
 
     ceiling = None
     for row in alt["scheduled_options"]:
@@ -244,8 +246,9 @@ def get_price(salt: str, strength: str = "", limit: int = 6,
         )
 
     comparison = None
-    if ceiling and floor:
-        from pipeline.build_db import parse_unit
+    # Only compare like with like. A combination product is a different
+    # medicine, so a multiple against it is meaningless.
+    if ceiling and floor and not (ceiling["is_combination"] or floor["is_combination"]):
         c_qty, c_kind = parse_unit(ceiling["unit"], ceiling["formulation"])
         f_qty, f_kind = parse_unit(floor["pack"], floor["product"])
         if c_kind == f_kind and c_qty and f_qty:
@@ -290,7 +293,7 @@ def check_quality_record(name: str, limit: int = 6,
         nsq = [dict(r) for r in con.execute(
             f"SELECT manufacturer, product_name, batch_no, mfg_date, expiry_date,"
             f" nsq_reason, reported_by, alert_type, series, alert_year,"
-            f" alert_month, source_file FROM nsq_records"
+            f" alert_month, source_file, source_url FROM nsq_records"
             f" WHERE ({w1}) OR ({w2})"
             f" ORDER BY alert_year DESC, alert_month DESC LIMIT ?",
             (*p1, *p2, limit)).fetchall()]

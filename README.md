@@ -6,7 +6,7 @@ A user types the salt on their prescription. The agent finds every same-composit
 option, shows what the law says it may cost, and flags whether any of the
 manufacturers involved have a recorded quality failure.
 
-**Status: data layer + agent.** No UI yet.
+**Status: data layer + agent + UI.** Architecture diagram and video outstanding.
 
 ```
 pipeline/            data ingestion (see below)
@@ -16,6 +16,8 @@ medlens/             the agent
   agent.py           build_agent() + system prompt
   mock_model.py      scripted model, runs the real loop with no credentials
   cli.py             deterministic CLI + agent mode
+ui/build_ui.py       generates the UI
+ui/index.html        generated - self-contained, opens from the filesystem
 docs/agent.md        how to run the agent
 ```
 
@@ -23,7 +25,28 @@ docs/agent.md        how to run the agent
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
 $PY -m medlens.cli price atorvastatin 10mg     # no credentials needed
 $PY -m medlens.cli check coldrif
+$PY ui/build_ui.py                             # regenerate ui/index.html
 ```
+
+## The UI
+
+`ui/index.html` is a single self-contained file — data embedded, no server, no build step.
+Open it directly, or drop it on any static host for the live demo link. A demo that needs a
+port and a working CORS setup is a demo that can fail on stage.
+
+It runs the same rules as the CLI: strength matching, dosage-form filtering, combination-product
+detection, unit-normalised comparison, and the provenance caveat. The JavaScript `parseUnit` and
+`strengthsOf` are ports of `medlens/units.py`, verified against the Python by running the page's
+own script under Node and comparing the output with the CLI.
+
+**Two traps worth knowing, both found by testing rather than reading:**
+
+1. `\b` written unescaped inside a Python string literal becomes a literal **backspace**
+   character (0x08). Python does *not* warn about this, unlike `\d`. It silently produced a
+   regex that could never match, so `atorvastatin 10mg` failed to match a product called
+   "Atorvastatin". `build_ui.py` now refuses to write output containing control characters.
+2. A regex literal missing its closing `/` reads as correct to the eye. It took a byte dump
+   to find.
 
 ---
 

@@ -61,7 +61,11 @@ def show_price(salt: str, strength: str = "") -> None:
               f"   ratio {cmp_['ratio']}x")
         print(f"  SANITY         {cmp_['sanity']}")
     elif c and f:
-        print("\n  No per-unit comparison: the two sources quote different units.")
+        if c.get("is_combination") or f.get("is_combination"):
+            print("\n  No ratio: one of the matches is a combination product, so the")
+            print("  two figures are not the same medicine.")
+        else:
+            print("\n  No per-unit comparison: the two sources quote different units.")
 
     for cav in r["caveats"]:
         if cav.startswith(("WARNING", "PROVENANCE")):
@@ -94,7 +98,10 @@ def show_quality(name: str) -> None:
         print(f"    reason {rec['nsq_reason'][:66]}")
         who_lab = "state" if rec["series"] == "state" else "central"
         print(f"    source {who_lab} lab alert {rec['alert_year']}-{rec['alert_month']:02d}")
-        print(f"    file   {rec['source_file']}  (source URL in the manifest)")
+        if rec.get("source_url"):
+            print(f"    doc    {rec['source_url']}")
+        else:
+            print(f"    file   {rec['source_file']}")
 
     t2 = r["tier2_who_alerts"]
     print(f"\n[TIER 2] {t2['source']}")
