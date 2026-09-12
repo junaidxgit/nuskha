@@ -1,4 +1,4 @@
-"""Query layer for MedLens.
+"""Query layer for Nuskha.
 
 Three questions, one database:
 
@@ -22,7 +22,7 @@ import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB = ROOT / "data" / "processed" / "medlens.db"
+DEFAULT_DB = ROOT / "data" / "processed" / "nuskha.db"
 
 # Corporate noise stripped for matching only, never for display
 NOISE = re.compile(
@@ -44,10 +44,10 @@ def norm_key(value: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-# Unit and strength handling lives in medlens.units, shared with the ETL.
+# Unit and strength handling lives in nuskha.units, shared with the ETL.
 # The code review found this duplicated in both files, and the unit-mismatch bug
 # had to be fixed twice as a result.
-from medlens.units import normalize_form, parse_unit, strengths_of  # noqa: E402
+from nuskha.units import normalize_form, parse_unit, strengths_of  # noqa: E402
 
 # "Aspirin & Atorvastatin Capsules", "Glimepiride and Metformin", "A, B and C"
 COMBINATION = re.compile(r"\s(?:&|and)\s|,", re.I)

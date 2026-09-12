@@ -21,7 +21,7 @@ judgement.
 
 **Duplicated Code** (dominant):
 - `norm_key` + the `NOISE` regex copy-pasted verbatim — `pipeline/build_db.py:37-56` and
-  `medlens/queries.py:27-64`. Same for the LIKE builder: `like_where` (`build_db.py:223-231`)
+  `nuskha/queries.py:27-64`. Same for the LIKE builder: `like_where` (`build_db.py:223-231`)
   vs `_like` (`queries.py:93-99`).
 - `norm()` (letter-spacing rejoin) duplicated — `parse_nsq.py:44-71` vs `parse_nsq_v2.py:76-93`.
 - `to_ym` + `MMYYYY`/`MONYY`/`MONTHS` duplicated — `parse_nsq.py:102-116` vs
@@ -39,7 +39,7 @@ they can drift. Likewise two unconnected unit classifiers: `KIND_PATTERNS`/`unit
 (`from pipeline.build_db import parse_unit`) — a layering inversion that makes the drift
 worse. A shared `units.py` would gather what changes together.
 
-*Not a smell:* `medlens/tools.py` looks like Middle Man, but thin delegation is the required
+*Not a smell:* `nuskha/tools.py` looks like Middle Man, but thin delegation is the required
 `@tool` contract.
 
 **Correctness spotted in passing (outside this axis, same class as bugs already fixed):**

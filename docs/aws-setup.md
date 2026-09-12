@@ -7,7 +7,7 @@ Check current state with:
 
 ```bash
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
-$PY -m medlens.cli check-bedrock
+$PY -m nuskha.cli check-bedrock
 ```
 
 Two things have to be true. The command checks them in order, because each failure has a
@@ -66,18 +66,18 @@ availability differs by region — `ap-south-1` (Mumbai) is closer to Bengaluru 
 different model list. If you switch, pass it explicitly:
 
 ```bash
-$PY -m medlens.cli check-bedrock --region ap-south-1
+$PY -m nuskha.cli check-bedrock --region ap-south-1
 ```
 
 ## 4. The model
 
 `global.anthropic.claude-sonnet-4-6` — Strands' current default, a global cross-region
-inference profile. You can override it in `medlens/agent.py` via `build_agent(model=...)`.
+inference profile. You can override it in `nuskha/agent.py` via `build_agent(model=...)`.
 
 ## 5. Run it
 
 ```bash
-$PY -m medlens.cli ask "what should atorvastatin 10mg cost, and is there any quality record?"
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost, and is there any quality record?"
 ```
 
 If it fails, the error surfaces rather than being swallowed, and the CLI prints a reminder
@@ -93,7 +93,7 @@ script would cost pennies.
 
 ## A note on the offline path
 
-`medlens/mock_model.py` drives the genuine Strands event loop with a scripted policy instead
+`nuskha/mock_model.py` drives the genuine Strands event loop with a scripted policy instead
 of an LLM. It exists because a demo video cannot depend on live credentials and network
 access. **Keep it.** If Bedrock misbehaves during recording, the demo still runs, and the
 agent loop it exercises is the real one — only the model is substituted.

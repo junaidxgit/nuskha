@@ -8,7 +8,7 @@ LLM.
 
 It is NOT a substitute for the LLM in production. It proves the wiring works and
 it makes the demo reproducible. Run the real thing with Bedrock via
-medlens.agent.build_agent().
+nuskha.agent.build_agent().
 
 Policy:
   turn 1 - no tool results yet  -> emit tool calls for get_price and

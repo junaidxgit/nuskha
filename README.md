@@ -1,4 +1,4 @@
-# MedLens — what is on your prescription, and what it should cost
+# Nuskha — what is on your prescription, and what it should cost
 
 *Working title. Built for the AWS **Agents for Humans** hackathon (Everyday Agents track).*
 
@@ -10,7 +10,7 @@ manufacturers involved have a recorded quality failure.
 
 ```
 pipeline/            data ingestion (see below)
-medlens/             the agent
+nuskha/             the agent
   queries.py         the three query functions
   tools.py           Strands @tool wrappers
   agent.py           build_agent() + system prompt
@@ -26,11 +26,11 @@ docs/architecture.svg the architecture diagram
 
 ```bash
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
-$PY -m medlens.cli price atorvastatin 10mg     # no credentials needed
-$PY -m medlens.cli check coldrif
+$PY -m nuskha.cli price atorvastatin 10mg     # no credentials needed
+$PY -m nuskha.cli check coldrif
 $PY ui/build_ui.py                             # regenerate ui/index.html
-$PY -m medlens.cli check-bedrock               # diagnose AWS/Bedrock readiness
-$PY -m medlens.cli ask "what should atorvastatin 10mg cost?"   # real agent
+$PY -m nuskha.cli check-bedrock               # diagnose AWS/Bedrock readiness
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"   # real agent
 ```
 
 ## The UI
@@ -41,7 +41,7 @@ port and a working CORS setup is a demo that can fail on stage.
 
 It runs the same rules as the CLI: strength matching, dosage-form filtering, combination-product
 detection, unit-normalised comparison, and the provenance caveat. The JavaScript `parseUnit` and
-`strengthsOf` are ports of `medlens/units.py`, verified against the Python by running the page's
+`strengthsOf` are ports of `nuskha/units.py`, verified against the Python by running the page's
 own script under Node and comparing the output with the CLI.
 
 **Two traps worth knowing, both found by testing rather than reading:**
@@ -186,7 +186,7 @@ $PY pipeline/build_db.py --check "atorvastatin"
 ```
 
 Outputs: `data/raw/nsq/*.pdf`, `data/raw/nsq_recent/*.pdf`, `data/raw/who/*.pdf`,
-manifests with sha256 per file, and `data/processed/` JSONL + `medlens.db`.
+manifests with sha256 per file, and `data/processed/` JSONL + `nuskha.db`.
 
 Sample output — the query only Tier 2 catches:
 

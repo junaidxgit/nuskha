@@ -1,7 +1,7 @@
 """Unit and strength handling.
 
 Shared by the ETL (`pipeline/build_db.py`) and the query layer
-(`medlens/queries.py`). It lives here rather than in either one because the
+(`nuskha/queries.py`). It lives here rather than in either one because the
 code review found the same logic duplicated in both, and the unit-mismatch bug
 had to be fixed twice as a result.
 

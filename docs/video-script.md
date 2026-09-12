@@ -21,8 +21,8 @@ Run these once so they are in shell history and the output is warm:
 
 ```bash
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
-$PY -m medlens.cli price atorvastatin 10mg
-$PY -m medlens.cli check coldrif
+$PY -m nuskha.cli price atorvastatin 10mg
+$PY -m nuskha.cli check coldrif
 ```
 
 **Fallback if Bedrock misbehaves:** the deterministic commands need no AWS at all. The demo
@@ -70,11 +70,11 @@ below is built on them on purpose, so it cannot fail on stage.
 
 **Narration:**
 
-> MedLens. You type the salt written on the prescription — not a brand, because Indian
+> Nuskha. You type the salt written on the prescription — not a brand, because Indian
 > prescriptions already name the salt.
 
 ```
-$ python -m medlens.cli price atorvastatin 10mg
+$ python -m nuskha.cli price atorvastatin 10mg
 ```
 
 **Narration, reading the output as it appears:**
@@ -102,7 +102,7 @@ $ python -m medlens.cli price atorvastatin 10mg
 **On screen:** back to terminal. This is the important one.
 
 ```
-$ python -m medlens.cli check coldrif
+$ python -m nuskha.cli check coldrif
 ```
 
 **Narration:**
@@ -144,7 +144,7 @@ $ python -m medlens.cli check coldrif
 **On screen:** back to the terminal.
 
 ```
-$ python -m medlens.cli ask "what should atorvastatin 10mg cost?"
+$ python -m nuskha.cli ask "what should atorvastatin 10mg cost?"
 ```
 
 **Narration:**
@@ -170,7 +170,7 @@ credits." Then run the scripted-model one-liner.)*
 > publication.
 >
 > An NSQ finding is **batch-specific**. It means one batch failed testing on one date for
-> the stated reason. It is not a statement about the company, and MedLens never says it is.
+> the stated reason. It is not a statement about the company, and Nuskha never says it is.
 > Absence of a record is not evidence of quality either, because only sampled batches are
 > tested.
 >
@@ -190,7 +190,7 @@ credits." Then run the scripted-model one-liner.)*
 >
 > Four rupees ninety-four, against eighty-eight paise. Same medicine. Both official.
 >
-> That is MedLens.
+> That is Nuskha.
 
 ---
 

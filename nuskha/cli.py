@@ -1,4 +1,4 @@
-"""MedLens CLI.
+"""Nuskha CLI.
 
 Two modes:
 
@@ -8,10 +8,10 @@ Two modes:
   agent          - runs the real Strands agent. Needs model credentials.
 
 Usage:
-    python -m medlens.cli price atorvastatin 10mg
-    python -m medlens.cli check coldrif
-    python -m medlens.cli report atorvastatin 10mg
-    python -m medlens.cli ask "what should atorvastatin 10mg cost?"
+    python -m nuskha.cli price atorvastatin 10mg
+    python -m nuskha.cli check coldrif
+    python -m nuskha.cli report atorvastatin 10mg
+    python -m nuskha.cli ask "what should atorvastatin 10mg cost?"
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import json
 import sys
 from pathlib import Path
 
-from medlens.queries import check_quality_record, find_alternatives, get_price
+from nuskha.queries import check_quality_record, find_alternatives, get_price
 
 RULE = "-" * 76
 
@@ -216,15 +216,15 @@ def check_bedrock(region: str = "") -> int:
     print()
     if ok:
         print("  Ready. Run the real agent:")
-        print('    python -m medlens.cli ask "what should atorvastatin 10mg cost?"')
+        print('    python -m nuskha.cli ask "what should atorvastatin 10mg cost?"')
     else:
         print("  Not ready. The deterministic commands still work and need no AWS:")
-        print("    python -m medlens.cli price atorvastatin 10mg")
+        print("    python -m nuskha.cli price atorvastatin 10mg")
     return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="medlens")
+    ap = argparse.ArgumentParser(prog="nuskha")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p1 = sub.add_parser("price", help="ceiling and floor for a composition")
@@ -262,7 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         return check_bedrock(args.region)
     elif args.cmd == "ask":
         try:
-            from medlens.agent import ask
+            from nuskha.agent import ask
         except Exception as exc:
             print(f"could not load the agent: {exc}", file=sys.stderr)
             return 2

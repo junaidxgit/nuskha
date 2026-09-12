@@ -56,7 +56,7 @@ WHO_JSONL = ROOT / "data" / "processed" / "who_alerts.jsonl"
 WHO_STRUCT = ROOT / "data" / "processed" / "who_alerts_structured.jsonl"
 NPPA_JSONL = ROOT / "data" / "processed" / "nppa_ceiling_prices.jsonl"
 JA_JSONL = ROOT / "data" / "processed" / "janaushadhi_prices.jsonl"
-DB = ROOT / "data" / "processed" / "medlens.db"
+DB = ROOT / "data" / "processed" / "nuskha.db"
 
 NOISE = re.compile(
     r"\b(m/s|ms|m/s\.|pvt|private|ltd|limited|llp|inc|co|company|"
@@ -239,7 +239,7 @@ def build() -> sqlite3.Connection:
     ):
         con.execute(stmt)
     con.commit()
-    print(f"medlens.db built:")
+    print(f"nuskha.db built:")
     print(f"  {n_nsq:,} NSQ records (Tier 1)")
     print(f"  {n_who:,} WHO alerts (Tier 2)")
     print(f"  {n_nppa:,} NPPA ceiling prices")
@@ -314,10 +314,10 @@ def check(con: sqlite3.Connection, term: str, limit: int) -> None:
     print("  sampled batches are tested. Not medical advice.")
 
 
-# Unit/strength logic lives in medlens.units so the ETL and the query layer
+# Unit/strength logic lives in nuskha.units so the ETL and the query layer
 # cannot drift apart. The code review found this duplicated in both files.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from medlens.units import parse_unit, unit_kind  # noqa: E402
+from nuskha.units import parse_unit, unit_kind  # noqa: E402
 
 
 def price(con: sqlite3.Connection, term: str, limit: int) -> None:

@@ -1,11 +1,11 @@
-"""Generate the MedLens UI as a single self-contained HTML file.
+"""Generate the Nuskha UI as a single self-contained HTML file.
 
 Why one file with the data embedded: a demo that needs a server, a port and a
 working CORS setup is a demo that can fail on stage. This opens from the
 filesystem, works offline, and can equally be dropped on a static host to
 produce the live demo link.
 
-The data is a compact projection of medlens.db - only the fields the UI renders,
+The data is a compact projection of nuskha.db - only the fields the UI renders,
 with short keys, because the full records would triple the file size.
 
 Run:
@@ -19,7 +19,7 @@ import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / "data" / "processed" / "medlens.db"
+DB = ROOT / "data" / "processed" / "nuskha.db"
 OUT = ROOT / "ui" / "index.html"
 
 
@@ -70,7 +70,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MedLens - what is on your prescription, and what it should cost</title>
+<title>Nuskha - what is on your prescription, and what it should cost</title>
 <style>
   :root {
     --bg:#12130f; --panel:#1c1e18; --panel2:#23261e; --line:#33362b;
@@ -142,7 +142,7 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
 <div class="wrap">
-  <h1>MedLens</h1>
+  <h1>Nuskha</h1>
   <p class="sub">Type the salt written on your prescription. See what the law says it may
      cost, and whether the regulator has a quality record for it.</p>
 
@@ -178,7 +178,7 @@ function key(s) {
     .replace(/\\b\\d{4,}\\b/g, " ")
     .replace(/\\s+/g, " ").trim();
 }
-// Ported from medlens/units.py so the UI compares like the CLI does.
+// Ported from nuskha/units.py so the UI compares like the CLI does.
 const KINDS = [
   ["tablet", /\\btablet/], ["capsule", /\\bcapsule/],
   ["ml", /\\bml\\b|\\binjection\\b|\\bsyrup\\b|\\bsuspension\\b|\\bsolution\\b|\\bdrop/],

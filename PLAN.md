@@ -34,7 +34,7 @@ These are the items that disqualify you if forgotten, and they cost almost nothi
 ## Day 2 — Sep 12
 
 - [ ] **Strands agent.** Tools: `find_alternatives(salt, strength, form)`,
-      `get_price(brand)`, `check_quality_record(name)`. The last one wraps `medlens.db`.
+      `get_price(brand)`, `check_quality_record(name)`. The last one wraps `nuskha.db`.
 - [ ] **Web UI.** One input, one result card. Tiers rendered as visibly separate blocks —
       Tier 1 "recorded by CDSCO", Tier 2 "published by WHO". This is the design decision
       judges will notice.

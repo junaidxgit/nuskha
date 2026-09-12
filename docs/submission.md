@@ -13,13 +13,13 @@ set to `junaidxgit <officiallyunofficial007@gmail.com>`.
 `gh` is not installed on this machine, so create the repo in the browser:
 
 1. github.com → **New repository**
-2. Name: `medlens` (or your preference). **Public.** No README, no .gitignore, no licence —
+2. Name: `nuskha` (or your preference). **Public.** No README, no .gitignore, no licence —
    the repo already has all three.
 3. Copy the URL, then:
 
 ```bash
 cd "C:/Users/offic/WorkBuddy AI/2026-09-10-22-06-33"
-git remote add origin https://github.com/<your-username>/medlens.git
+git remote add origin https://github.com/<your-username>/nuskha.git
 git push -u origin main
 ```
 
@@ -44,8 +44,8 @@ Required for submission, and **separate from an AWS account**. Sign up at `build
 
 See `docs/aws-setup.md`. Two steps: credentials, then model access.
 
-- [ ] `python -m medlens.cli check-bedrock` reports **Ready**
-- [ ] `python -m medlens.cli ask "what should atorvastatin 10mg cost?"` returns a real answer
+- [ ] `python -m nuskha.cli check-bedrock` reports **Ready**
+- [ ] `python -m nuskha.cli ask "what should atorvastatin 10mg cost?"` returns a real answer
 
 ## 4. Live demo link (optional, scores higher)
 

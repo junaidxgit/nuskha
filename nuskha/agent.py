@@ -1,8 +1,8 @@
-"""The MedLens Strands agent.
+"""The Nuskha Strands agent.
 
 Provider-agnostic on purpose. Strands ships Amazon Bedrock by default; pass any
 other model via build_agent(model=...). See docs/agent.md for how to run it
-against Bedrock, and medlens/cli.py for a deterministic mode that needs no
+against Bedrock, and nuskha/cli.py for a deterministic mode that needs no
 model credentials at all.
 
 The system prompt is where the safety framing is enforced. The data layer will
@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from strands import Agent
 
-from medlens.tools import check_quality_record, find_alternatives, get_price
+from nuskha.tools import check_quality_record, find_alternatives, get_price
 
-SYSTEM_PROMPT = """You are MedLens. A user tells you the salt written on their
+SYSTEM_PROMPT = """You are Nuskha. A user tells you the salt written on their
 prescription and you tell them two things: what it should cost, and whether
 anything in the regulatory record concerns it.
 
@@ -73,7 +73,7 @@ def build_agent(model=None, callback_handler=None) -> Agent:
     kwargs = {
         "tools": [find_alternatives, get_price, check_quality_record],
         "system_prompt": SYSTEM_PROMPT,
-        "name": "medlens",
+        "name": "nuskha",
         "description": "Medicine composition, price ceiling and quality records",
     }
     if model is not None:

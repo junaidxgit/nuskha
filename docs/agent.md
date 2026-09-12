@@ -1,9 +1,9 @@
 # The agent
 
-A Strands Agents agent with three tools over `medlens.db`.
+A Strands Agents agent with three tools over `nuskha.db`.
 
 ```
-medlens/
+nuskha/
   queries.py     the three query functions (pure, DB-backed)
   tools.py       @tool wrappers - Strands derives the spec from the signature
   agent.py       build_agent() + the system prompt that enforces the framing
@@ -17,17 +17,17 @@ medlens/
 PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
 
 # deterministic - no model, no credentials, no network. Use this for the demo.
-$PY -m medlens.cli price atorvastatin 10mg
-$PY -m medlens.cli check coldrif
-$PY -m medlens.cli report atorvastatin 10mg
-$PY -m medlens.cli json atorvastatin 10mg
+$PY -m nuskha.cli price atorvastatin 10mg
+$PY -m nuskha.cli check coldrif
+$PY -m nuskha.cli report atorvastatin 10mg
+$PY -m nuskha.cli json atorvastatin 10mg
 
 # the real agent loop, driven by a scripted model instead of an LLM
-$PY -c "from medlens.agent import build_agent; from medlens.mock_model import ScriptedModel; \
+$PY -c "from nuskha.agent import build_agent; from nuskha.mock_model import ScriptedModel; \
         print(build_agent(model=ScriptedModel(), callback_handler=None)('what should atorvastatin 10mg cost?'))"
 
 # the real agent with a real model (needs AWS credentials)
-$PY -m medlens.cli ask "what should atorvastatin 10mg cost?"
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"
 ```
 
 ## Why there is a scripted model

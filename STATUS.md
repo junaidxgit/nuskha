@@ -53,17 +53,17 @@ Nearest hard deadline: **AWS credits form, Sep 12 00:30 IST (~23 hours).**
   and only compares matching unit kinds, with a printed sanity verdict.
 
 ### The agent — built
-- [x] `medlens/queries.py` — the three query functions, DB-backed
+- [x] `nuskha/queries.py` — the three query functions, DB-backed
 - [x] **Strength matching** (`strengths_of`) — stops "metformin 250 mg" matching a 500 mg
   product. This was the flagged highest-priority fix.
 - [x] **Combination-product detection** (`is_combination`) — strength matching alone still
   returned "Aspirin & Atorvastatin Capsules" as the ceiling for plain atorvastatin. Single
   ingredient now ranks first, and a WARNING is attached when only a combination matches.
-- [x] `medlens/tools.py` — Strands `@tool` wrappers; schema verified
+- [x] `nuskha/tools.py` — Strands `@tool` wrappers; schema verified
   (`tool.tool_spec["inputSchema"]["json"]`, 3 tools registered)
-- [x] `medlens/agent.py` — `build_agent()` + a system prompt enforcing the framing rules
-- [x] `medlens/cli.py` — deterministic CLI (`price` / `check` / `report` / `json`) + `ask`
-- [x] `medlens/mock_model.py` — scripted model; **the real Strands loop runs offline**
+- [x] `nuskha/agent.py` — `build_agent()` + a system prompt enforcing the framing rules
+- [x] `nuskha/cli.py` — deterministic CLI (`price` / `check` / `report` / `json`) + `ask`
+- [x] `nuskha/mock_model.py` — scripted model; **the real Strands loop runs offline**
   with no AWS credentials. Verified trace: `user → assistant(toolUse ×2) →
   user(toolResult ×2) → assistant(text)`.
 - [x] `docs/agent.md` — how to run, and the API gotchas for wiring a real model
@@ -110,7 +110,7 @@ reported monthly totals (7 of 8 exact). This is no longer the critical path.
 
 - [ ] Strands Agents SDK setup (AWS account, SDK install)
 - [ ] Tools: `find_alternatives(salt, strength, form)`, `get_price(brand)`,  
-  `check_quality_record(name)` — the last wraps `medlens.db`
+  `check_quality_record(name)` — the last wraps `nuskha.db`
 - [ ] Composition-first input (the salt on the prescription), never brand-first
 - [ ] Disclaimers enforced in code, not just copy: batch-specificity, "absence ≠ safe",  
   "not medical advice", no substitution instructions

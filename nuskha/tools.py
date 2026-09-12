@@ -1,6 +1,6 @@
-"""Strands tools for MedLens.
+"""Strands tools for Nuskha.
 
-Thin wrappers over medlens.queries. Each is decorated with @tool so Strands
+Thin wrappers over nuskha.queries. Each is decorated with @tool so Strands
 derives the tool spec from the signature, type hints and docstring - which is
 why the docstrings are written as instructions to the model rather than as
 documentation for a human.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from strands import tool
 
-from medlens.queries import (
+from nuskha.queries import (
     check_quality_record as _check,
     find_alternatives as _find,
     get_price as _price,
