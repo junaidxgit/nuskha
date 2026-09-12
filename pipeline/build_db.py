@@ -30,6 +30,8 @@ NSQ_JSONL = ROOT / "data" / "processed" / "nsq_records.jsonl"
 NSQ_RECENT_JSONL = ROOT / "data" / "processed" / "nsq_records_recent.jsonl"
 WHO_JSONL = ROOT / "data" / "processed" / "who_alerts.jsonl"
 WHO_STRUCT = ROOT / "data" / "processed" / "who_alerts_structured.jsonl"
+NPPA_JSONL = ROOT / "data" / "processed" / "nppa_ceiling_prices.jsonl"
+JA_JSONL = ROOT / "data" / "processed" / "janaushadhi_prices.jsonl"
 DB = ROOT / "data" / "processed" / "medlens.db"
 
 NOISE = re.compile(
@@ -125,6 +127,40 @@ def load_who(con: sqlite3.Connection) -> int:
     return len(rows)
 
 
+def load_nppa(con: sqlite3.Connection) -> int:
+    """NPPA ceiling prices - the legally binding maximum retail price."""
+    if not NPPA_JSONL.exists():
+        return 0
+    rows = [json.loads(l) for l in NPPA_JSONL.open(encoding="utf-8")]
+    con.executemany(
+        "INSERT INTO nppa_prices (formulation, formulation_key, composition,"
+        " unit, manufacturer, retail_price_inr, notice_ref, notice_year,"
+        " notice_month, source_post, provenance) VALUES (" + ",".join("?" * 11) + ")",
+        [(
+            r.get("formulation"), norm_key(r.get("formulation", "")),
+            r.get("composition"), r.get("unit"), r.get("manufacturer"),
+            r.get("retail_price_inr"), r.get("notice_ref"), r.get("notice_year"),
+            r.get("notice_month"), r.get("source_post"), r.get("provenance"),
+        ) for r in rows])
+    return len(rows)
+
+
+def load_janaushadhi(con: sqlite3.Connection) -> int:
+    """Jan Aushadhi generic prices - the cheap compliant floor."""
+    if not JA_JSONL.exists():
+        return 0
+    rows = [json.loads(l) for l in JA_JSONL.open(encoding="utf-8")]
+    con.executemany(
+        "INSERT INTO janaushadhi_prices (drug_code, generic_name, generic_key,"
+        " unit_size, mrp_inr, provenance) VALUES (" + ",".join("?" * 6) + ")",
+        [(
+            r.get("drug_code"), r.get("generic_name"),
+            norm_key(r.get("generic_name", "")), r.get("unit_size"),
+            r.get("mrp_inr"), r.get("provenance"),
+        ) for r in rows])
+    return len(rows)
+
+
 def build() -> sqlite3.Connection:
     DB.parent.mkdir(parents=True, exist_ok=True)
     if DB.exists():
@@ -147,19 +183,39 @@ def build() -> sqlite3.Connection:
             manufacturers TEXT, alert_date TEXT, product_key TEXT, maker_key TEXT)
     """)
 
+    con.execute("""
+        CREATE TABLE nppa_prices (
+            id INTEGER PRIMARY KEY, formulation TEXT, formulation_key TEXT,
+            composition TEXT, unit TEXT, manufacturer TEXT,
+            retail_price_inr REAL, notice_ref TEXT, notice_year INTEGER,
+            notice_month INTEGER, source_post TEXT, provenance TEXT)
+    """)
+    con.execute("""
+        CREATE TABLE janaushadhi_prices (
+            id INTEGER PRIMARY KEY, drug_code INTEGER, generic_name TEXT,
+            generic_key TEXT, unit_size TEXT, mrp_inr REAL, provenance TEXT)
+    """)
+
     n_nsq = load_nsq(con)
     n_who = load_who(con)
+    n_nppa = load_nppa(con)
+    n_ja = load_janaushadhi(con)
 
     for stmt in (
         "CREATE INDEX idx_maker ON nsq_records(maker_key)",
         "CREATE INDEX idx_product ON nsq_records(product_key)",
         "CREATE INDEX idx_ym ON nsq_records(alert_year, alert_month)",
         "CREATE INDEX idx_who_year ON who_alerts(alert_year)",
+        "CREATE INDEX idx_nppa_key ON nppa_prices(formulation_key)",
+        "CREATE INDEX idx_ja_key ON janaushadhi_prices(generic_key)",
     ):
         con.execute(stmt)
     con.commit()
-    print(f"medlens.db built: {n_nsq:,} NSQ records (Tier 1), "
-          f"{n_who:,} WHO alerts (Tier 2)")
+    print(f"medlens.db built:")
+    print(f"  {n_nsq:,} NSQ records (Tier 1)")
+    print(f"  {n_who:,} WHO alerts (Tier 2)")
+    print(f"  {n_nppa:,} NPPA ceiling prices")
+    print(f"  {n_ja:,} Jan Aushadhi prices")
     print(f"-> {DB.relative_to(ROOT)}")
     return con
 
@@ -230,9 +286,125 @@ def check(con: sqlite3.Connection, term: str, limit: int) -> None:
     print("  sampled batches are tested. Not medical advice.")
 
 
+KIND_PATTERNS = [
+    ("tablet",  r"\btablet"),
+    ("capsule", r"\bcapsule"),
+    ("ml",      r"\bml\b|\binjection\b|\bsyrup\b|\bsuspension\b|\bsolution\b|\bdrop"),
+    ("g",       r"\bgm?\b|\bgram|\bgel\b|\bcream\b|\bointment\b|\bpowder\b"),
+    ("sachet",  r"\bsachet\b"),
+    ("patch",   r"\bpatch\b"),
+]
+
+# NPPA unit strings look like "1 Capsule", "1 ml", "1 Tablet".
+# Jan Aushadhi unit strings look like "10's", "15 g", "3 ml", "1's".
+NPPA_UNIT = re.compile(
+    r"(?P<qty>\d+(?:\.\d+)?)\s*(?P<kind>[A-Za-z%][A-Za-z/ ]*)")
+JA_UNIT = re.compile(r"(?P<qty>\d+(?:\.\d+)?)\s*(?:'?s\b)?\s*(?P<kind>[A-Za-z]*)?")
+
+
+def unit_kind(text: str, fallback: str = "") -> str:
+    """Classify a unit or product name into tablet / capsule / ml / g / ..."""
+    t = f"{text} {fallback}".lower()
+    for kind, pattern in KIND_PATTERNS:
+        if re.search(pattern, t):
+            return kind
+    return "unit"
+
+
+def parse_unit(raw: str, name: str = "") -> tuple[float, str]:
+    """Return (quantity, kind) so prices can be compared per unit.
+
+    Without this, 'Rs 3.65 per 1 Capsule' and 'Rs 8.80 per 10's' look comparable
+    and produce a nonsense range where the floor sits above the ceiling.
+    """
+    s = (raw or "").strip()
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*'?s?\s*(.*)$", s)
+    if not m:
+        return 1.0, unit_kind(s, name)
+    qty = float(m.group(1)) or 1.0
+    tail = m.group(2).strip()
+    kind = unit_kind(tail, name) if tail else unit_kind(name)
+    if kind == "unit":
+        kind = unit_kind(name)
+    return qty, kind
+
+
+def price(con: sqlite3.Connection, term: str, limit: int) -> None:
+    """The price half of the answer: legal ceiling and generic floor."""
+    print(f"\n{'=' * 78}")
+    print(f"Prices for: {term!r}")
+    print("=" * 78)
+
+    where, params = like_where("formulation_key", term)
+    nppa = con.execute(
+        f"SELECT formulation, composition, unit, manufacturer, retail_price_inr,"
+        f" notice_ref, notice_year, notice_month FROM nppa_prices"
+        f" WHERE {where} ORDER BY retail_price_inr ASC LIMIT ?",
+        (*params, limit)).fetchall()
+
+    print(f"\n[CEILING] NPPA scheduled formulation - legally binding maximum")
+    print(f"          {len(nppa)} matching entry/entries")
+    if not nppa:
+        print("          none on record (not a scheduled formulation, or not yet captured)")
+
+    ceiling_per_unit: dict[str, float] = {}
+    for (form, comp, unit, maker, rupees, ref, yr, mo) in nppa:
+        qty, kind = parse_unit(unit, form)
+        per = rupees / qty if qty else rupees
+        ceiling_per_unit.setdefault(kind, per)
+        ceiling_per_unit[kind] = min(ceiling_per_unit[kind], per)
+        print(f"\n  {form[:78]}")
+        print(f"    composition {str(comp)[:76]}")
+        print(f"    ceiling     Rs {rupees} per {unit}"
+              + (f"  (= Rs {per:.2f} per {kind})" if qty != 1 else ""))
+        print(f"    maker       {str(maker)[:74]}")
+        if yr:
+            print(f"    notice      {ref or '-'} ({yr}-{mo:02d})")
+
+    where2, params2 = like_where("generic_key", term)
+    ja = con.execute(
+        f"SELECT generic_name, unit_size, mrp_inr, drug_code FROM janaushadhi_prices"
+        f" WHERE {where2} AND mrp_inr > 0 ORDER BY mrp_inr ASC LIMIT ?",
+        (*params2, limit)).fetchall()
+
+    print(f"\n[FLOOR] Jan Aushadhi generic - government-set price")
+    print(f"        {len(ja)} matching entry/entries")
+    if not ja:
+        print("        none on record")
+
+    floor_per_unit: dict[str, float] = {}
+    for (name, unit, mrp, code) in ja:
+        qty, kind = parse_unit(unit, name)
+        per = mrp / qty if qty else mrp
+        floor_per_unit.setdefault(kind, per)
+        floor_per_unit[kind] = min(floor_per_unit[kind], per)
+        print(f"  Rs {mrp:>9} per {unit:<8} {name[:56]}"
+              + (f"  (= Rs {per:.2f} per {kind})" if qty != 1 else ""))
+
+    # Only compare like with like. A cross-unit range is meaningless and would
+    # put the floor above the ceiling.
+    shared = sorted(set(ceiling_per_unit) & set(floor_per_unit))
+    if shared:
+        print(f"\n  Comparable per-unit ({', '.join(shared)}):")
+        for kind in shared:
+            lo, hi = floor_per_unit[kind], ceiling_per_unit[kind]
+            verdict = "floor below ceiling" if lo <= hi else "CHECK - floor above ceiling"
+            print(f"    {kind:<9} floor Rs {lo:.2f}   ceiling Rs {hi:.2f}   ({verdict})")
+    elif nppa and ja:
+        print("\n  Units differ between the two sources, so no per-unit comparison is")
+        print("  shown. Compare within each block above.")
+
+    print(f"\n{'-' * 78}")
+    print("  NPPA prices are exclusive of GST. Charging above the ceiling for a")
+    print("  scheduled formulation is illegal. This is not medical advice and not")
+    print("  a recommendation to substitute - composition match is not proven")
+    print("  therapeutic equivalence. Ask your doctor or pharmacist.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--check", help="run a tiered lookup for a term")
+    ap.add_argument("--check", help="run a tiered quality lookup for a term")
+    ap.add_argument("--price", help="show NPPA ceiling + Jan Aushadhi price")
     ap.add_argument("--manufacturer", help="NSQ lookup by manufacturer only")
     ap.add_argument("--product", help="NSQ lookup by product only")
     ap.add_argument("--limit", type=int, default=6)
@@ -242,6 +414,8 @@ def main() -> int:
 
     if args.check:
         check(con, args.check, args.limit)
+    if args.price:
+        price(con, args.price, args.limit)
     if args.manufacturer:
         check(con, args.manufacturer, args.limit)
     if args.product:

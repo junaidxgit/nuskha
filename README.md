@@ -57,8 +57,49 @@ pipeline/fetch_nsq_recent.py   download CDSCO NSQ PDFs, 2025-07..2026-07   (Tier
 pipeline/parse_nsq_v2.py       cell-rect layout -> 1,993 records            (Tier 1)
 pipeline/fetch_who.py          download WHO Medical Product Alerts          (Tier 2)
 pipeline/parse_who.py          WHO text -> products / manufacturers / dates (Tier 2)
+pipeline/fetch_nppa.py         NPPA ceiling prices from notification tables
+pipeline/fetch_janaushadhi.py  Jan Aushadhi generic MRP list
 pipeline/build_db.py           combined SQLite index + tiered lookup
 ```
+
+## The price layer — what should this cost
+
+Two official numbers, and the gap between them is the product.
+
+**NPPA ceiling price** is the legally binding maximum retail price for a *scheduled
+formulation* under the Drugs (Prices Control) Order, 2013. Charging above it is illegal.
+349 rows across 23 notifications, 206 distinct formulations, each carrying the composition
+and the S.O. notification reference.
+
+**Jan Aushadhi MRP** is the government's own generic price. 1,904 products with drug code,
+composition, pack size and price.
+
+Together they answer the question directly:
+
+```
+$ python pipeline/build_db.py --price "atorvastatin"
+
+[CEILING] NPPA scheduled formulation - legally binding maximum
+  Atorvastatin
+    composition Tablet 10 mg
+    ceiling     Rs 4.94 per 1 tablet
+    notice      S.O. 5498 (E) (2024-12)
+
+[FLOOR] Jan Aushadhi generic - government-set price
+  Rs 8.8 per 10's   Atorvastatin Tablets IP 10mg  (= Rs 0.88 per tablet)
+
+  Comparable per-unit (tablet):
+    tablet    floor Rs 0.88   ceiling Rs 4.94   (floor below ceiling)
+```
+
+A 5.6x gap between the government's own generic price and the legal ceiling, both figures
+official, on one screen. That is the number to open the demo with.
+
+**A correctness trap worth knowing about.** The two sources quote prices in different
+units — NPPA says "per 1 Capsule", Jan Aushadhi says "per 10's". Comparing those raw
+figures produced a nonsense range with the floor *above* the ceiling. `parse_unit()`
+normalises both to a per-unit basis and only compares when the unit kinds match
+(tablet/capsule/ml/g), printing a sanity verdict so the bug cannot come back silently.
 
 **Tier 1 — CDSCO NSQ, 2024-01 → 2026-07:** 70 PDFs, **3,591 records**, 2024: 699 ·
 2025: 1,831 · 2026: 1,061.
@@ -191,28 +232,32 @@ One collision to know about: the source's own "Alert Month" column is also calle
 
 ## Known gaps
 
-- **Provenance is a mirror.** The 2025-07+ PDFs come from trade-press mirrors of the
-  CDSCO documents, because the CDSCO endpoint moved and the Aug-2025 notice announcing
-  it is a scanned image with no extractable text. Every manifest entry records
-  `provenance: "mirror"` and the source URL, and each file is hashed. Before shipping,
-  resolve the CDSCO primary or re-host and say so. A tool making safety claims must be
-  able to prove its documents are unaltered.
-- **The price layer is not built.** NPPA ceiling prices and Jan Aushadhi MRP are still
-  missing, so the agent cannot yet answer "what should this cost". Discovery lead: the
-  same WordPress REST API that exposed the NSQ mirrors also carries NPPA posts
-  ("NPPA fixed retail price of 39 formulations: July 2026"), which is a clean way in.
-- `alert_type` labelling is inconsistent between the two fetchers: the 2024 set tags
+- **The price comparison is per-unit but not strength-matched.** `--price "metformin"`
+  compares the cheapest Jan Aushadhi entry (250 mg) against the cheapest NPPA ceiling
+  (a glimepiride combination). Both figures are real, but they are not the same product.
+  The agent must match on strength before showing a range. This is the highest-priority
+  correctness fix in the price layer.
+- **NPPA coverage is partial.** 206 distinct formulations captured, against 907–935 in the
+  full DPCO schedule. The notification tables embedded in the posts are sometimes truncated
+  previews (a "71 formulations" post carrying 12 rows). The complete list needs the S.O.
+  PDFs from nppa.gov.in directly.
+- **Provenance is a mirror** for the price data too — NPPA tables via the trade press, the
+  Jan Aushadhi list via a third-party PDF host. Both hashed, both flagged in the manifests.
+- **Jan Aushadhi has no usable API.** The site is a React SPA; its product endpoint at
+  `janaushadhi.gov.in:8443` returns HTTP 500 for every payload shape tried, and no
+  predictable PDF path on the official host resolves. The mirror PDF is the fallback.
+- 269 of the 1,904 Jan Aushadhi rows have MRP 0 — they are surgical appliances, not
+  medicines. Filtered out of price answers with `mrp_inr > 0`.
+- `alert_type` labelling is inconsistent between the two NSQ fetchers: the 2024 set tags
   state alerts as `nsq`, the 2025+ set tags them `state`. `series` is correct in both.
-  Cosmetic, but worth normalising before the UI consumes it.
 - WHO extraction is pattern-based and incomplete: 11 of 15 alerts yield product names,
-  4 yield manufacturers, and N°5/2025 returns COLDRIF and Respifresh TR but misses
-  ReLife. Conservative by design — it returns nothing rather than inventing a name.
-- 16 pre-2025 NSQ files yield no records: the "spurious drugs" and older "other" alerts
-  use a different table shape.
+  4 yield manufacturers, and N°5/2025 returns COLDRIF and Respifresh TR but misses ReLife.
+- 16 pre-2025 NSQ files yield no records: the "spurious drugs" and older "other" alerts use
+  a different table shape.
 - Manufacturer normalisation is deliberately lossy (strips "Pvt/Ltd/Pharma/...").
   Retrieval only, never display.
-- Occasional source typos and hyphenation survive ("Pharmaceuti cals", "MISBRANDE D",
-  "Mec obalamin", "Lhore" for Lahore). These are defects in the source PDFs.
+- Occasional source typos and hyphenation survive ("Pharmaceuti cals", "MISBRANDE D").
+  These are defects in the source PDFs.
 
 ## Guardrails (non-negotiable)
 

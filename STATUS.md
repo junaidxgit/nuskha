@@ -41,9 +41,16 @@ Nearest hard deadline: **AWS credits form, Sep 12 00:30 IST (~23 hours).**
   manufacturer 98.6%, reason 98.6% — **better than the 2024 set**
 - [x] `fetch_who.py` — 15 WHO alerts, 2024 → 2026, full text
 - [x] `parse_who.py` — structured products / manufacturers / dates / batches
-- [x] `build_db.py` — combined SQLite index, both NSQ sets merged, tiered lookup
+- [x] `fetch_nppa.py` — **349 NPPA ceiling prices**, 23 notifications, 206 formulations
+- [x] `fetch_janaushadhi.py` — **1,904 Jan Aushadhi products** with composition + MRP
+- [x] `build_db.py` — combined SQLite index: NSQ + WHO + NPPA + Jan Aushadhi
 - [x] `--check` demo works both directions:  
   `coldrif` → 0 Tier 1 / 1 Tier 2 · `atorvastatin` → 2 Tier 1 (2026 records) / 0 Tier 2
+- [x] `--price` works: **atorvastatin floor Rs 0.88 vs ceiling Rs 4.94 per tablet** —
+  a 5.6x gap, both figures official
+- [x] Fixed a real correctness bug: NPPA quotes "per 1 Capsule", Jan Aushadhi "per 10's".
+  Comparing raw figures put the floor ABOVE the ceiling. `parse_unit()` normalises both
+  and only compares matching unit kinds, with a printed sanity verdict.
 
 ### Submission scaffolding
 
@@ -63,13 +70,13 @@ Nearest hard deadline: **AWS credits form, Sep 12 00:30 IST (~23 hours).**
 Tier 1 now covers 2024-01 → 2026-07 with 3,591 records, validated against independently
 reported monthly totals (7 of 8 exact). This is no longer the critical path.
 
-### 2. Price layer — nothing built yet, now the critical path
+### 2. ~~Price layer~~ — BUILT, with two correctness gaps
 
-- [ ] NPPA ceiling prices via the trade-press API (posts like "NPPA fixed retail price of 39  
-  formulations: July 2026"). 907 scheduled formulations. Gives the legal maximum.
-- [ ] Jan Aushadhi MRP — either crack the `:8443` product endpoint (~1 hr) or fall back to  
-  their official MRP PDF. Gives the cheap compliant floor.
-- [ ] Answer shape: *"legal ceiling ₹X, Jan Aushadhi equivalent ₹Y"*
+- [ ] **Strength matching.** `--price "metformin"` compares the cheapest Jan Aushadhi entry
+  (250 mg) against the cheapest NPPA ceiling (a glimepiride combination). Both real, not
+  the same product. Must match on strength before showing a range. **Highest priority.**
+- [ ] **NPPA coverage.** 206 formulations captured vs 907–935 in the full DPCO schedule.
+  Posts sometimes carry truncated preview tables. Needs the S.O. PDFs from nppa.gov.in.
 
 ### 3. Admin — do these today, they're blockers if forgotten
 
