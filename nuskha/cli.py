@@ -26,6 +26,51 @@ from nuskha.queries import check_quality_record, find_alternatives, get_price
 RULE = "-" * 76
 
 
+def _silent(**kwargs) -> None:
+    """A Strands callback handler that prints nothing.
+
+    Strands installs a printing handler by default, which streams the answer to
+    stdout. The CLI prints the returned string itself, so without this the answer
+    appears twice.
+    """
+    return None
+
+
+def _traced() -> object:
+    """A callback handler that prints each tool dispatch as the loop runs.
+
+    The tool trace is the visible evidence that Strands is really driving a loop
+    rather than printing a canned string, so the demo wants it on screen. It
+    emits to stderr so the answer on stdout stays clean and pipeable.
+
+    Strands calls the handler with kwargs; the tool name arrives under
+    `current_tool_use` on `tool_use_stream` events (verified against this
+    Strands version, not guessed).
+    """
+
+    def handler(**kwargs) -> None:
+        if kwargs.get("type") != "tool_use_stream":
+            return
+        current = kwargs.get("current_tool_use") or {}
+        name = current.get("name")
+        if not name:
+            return
+        # `input` is still a raw JSON string while the block is streaming; it only
+        # becomes a dict afterwards. Accept both, and never raise from a callback -
+        # an exception here aborts the whole agent run.
+        raw = current.get("input")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (ValueError, TypeError):
+                raw = {}
+        if not isinstance(raw, dict):
+            raw = {}
+        args = ", ".join(f"{k}={v}" for k, v in raw.items() if v)
+        print(f"  tool -> {name}({args})", file=sys.stderr)
+    return handler
+
+
 def _money(v) -> str:
     return f"Rs {v:,.2f}" if isinstance(v, (int, float)) else "Rs -"
 
@@ -240,6 +285,15 @@ def main(argv: list[str] | None = None) -> int:
 
     p4 = sub.add_parser("ask", help="run the Strands agent (needs model credentials)")
     p4.add_argument("question")
+    p4.add_argument(
+        "--offline", action="store_true",
+        help="run the real agent loop with a scripted model instead of Bedrock, "
+             "so it works with no AWS credentials. For demos and CI.",
+    )
+    p4.add_argument(
+        "--trace", action="store_true",
+        help="print each tool the agent dispatches (to stderr) as the loop runs.",
+    )
 
     p5 = sub.add_parser("json", help="raw query output, for piping")
     p5.add_argument("salt")
@@ -261,19 +315,36 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "check-bedrock":
         return check_bedrock(args.region)
     elif args.cmd == "ask":
+        model = None
+        if args.offline:
+            # The genuine Strands event loop, driven by a scripted policy rather
+            # than an LLM. Real tool dispatch, real results fed back. Lets the
+            # demo and CI reproduce the agent without AWS credentials.
+            # verbose=False: the CLI prints the returned answer itself, and the
+            # callback handler would otherwise print the same text twice.
+            from nuskha.mock_model import ScriptedModel
+            model = ScriptedModel(verbose=False)
         try:
             from nuskha.agent import ask
         except Exception as exc:
             print(f"could not load the agent: {exc}", file=sys.stderr)
             return 2
+        # Pass no model for the real (Bedrock) path and no handler at all, so the
+        # answer comes back through the return value only. Strands' *default*
+        # callback handler streams to stdout, which would print the answer a
+        # second time when the CLI also prints the return value. An explicit
+        # no-op handler keeps stdout owned by this function.
         try:
-            print(ask(args.question))
+            answer = ask(args.question, model=model,
+                         callback_handler=_traced() if args.trace else _silent)
         except Exception as exc:
             print(f"\nagent run failed: {type(exc).__name__}: {exc}", file=sys.stderr)
-            print("Bedrock needs AWS credentials. Use the deterministic commands "
-                  "(price/check/report) instead - they need no model.",
+            print("Bedrock needs AWS credentials. Re-run with --offline to drive the "
+                  "same agent loop with a scripted model, or use the deterministic "
+                  "commands (price/check/report), which need no model.",
                   file=sys.stderr)
             return 1
+        print(answer)
     return 0
 
 

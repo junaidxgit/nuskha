@@ -32,7 +32,11 @@ $PY -m nuskha.cli price atorvastatin 10mg     # no credentials needed
 $PY -m nuskha.cli check coldrif
 $PY ui/build_ui.py                             # regenerate ui/index.html
 $PY -m nuskha.cli check-bedrock               # diagnose AWS/Bedrock readiness
-$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"   # real agent
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"   # real agent (Bedrock)
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?" --offline --trace
+                                              # same agent loop, scripted model,
+                                              # no credentials; --trace shows the
+                                              # tool dispatches
 ```
 
 ## The UI

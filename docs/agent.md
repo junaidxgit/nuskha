@@ -22,9 +22,10 @@ $PY -m nuskha.cli check coldrif
 $PY -m nuskha.cli report atorvastatin 10mg
 $PY -m nuskha.cli json atorvastatin 10mg
 
-# the real agent loop, driven by a scripted model instead of an LLM
-$PY -c "from nuskha.agent import build_agent; from nuskha.mock_model import ScriptedModel; \
-        print(build_agent(model=ScriptedModel(), callback_handler=None)('what should atorvastatin 10mg cost?'))"
+# the real agent loop, driven by a scripted model instead of an LLM.
+# --trace prints each tool dispatch, which is the demo's evidence that the
+# loop is genuinely running. Exit code 0, no credentials, no network.
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost?" --offline --trace
 
 # the real agent with a real model (needs AWS credentials)
 $PY -m nuskha.cli ask "what should atorvastatin 10mg cost?"
