@@ -17,8 +17,7 @@ portable `gh` in `.tools/` (the keyring credential became readable on the second
       public-health, price-transparency, strands-agents, healthcare
 - [x] **MIT license** confirmed detected by GitHub (`license.spdx_id: MIT` via API).
 - [x] Architecture diagram embedded in the README top; verified GitHub-safe.
-- [ ] **Add your surname to the copyright line in `LICENSE`** — currently "Copyright (c) 2026
-      Jun". Tell the agent your surname and it will commit + push, or edit on github.com.
+- [x] **Copyright line** reads "Copyright (c) 2026 Junaid"; GitHub still reports MIT.
 
 ## 2. AWS Builder ID
 
