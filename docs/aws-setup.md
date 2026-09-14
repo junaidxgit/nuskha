@@ -111,56 +111,65 @@ excludes `.env`.
 
 ## 2. Model access — the actual blocker on this account
 
-Bedrock does not grant model access by default. **On this account the model has never been
-granted**, and the error it returns is easy to misread:
+**The Bedrock "Model access" page has been retired.** Serverless foundation models are now
+enabled automatically, per region, on first invocation. So the old instruction
+("Model access → Modify → tick Claude → submit") **no longer applies** — that page is gone.
+
+The console page now states:
+
+> Note that for Anthropic models, first-time users may need to submit use case details
+> before they can access the model. For models served from AWS Marketplace, a user with
+> AWS Marketplace permissions must invoke the model once to enable it account-wide for all
+> users.
+
+**That is this account's blocker.** The API reports it as:
 
 ```
 ValidationException: Operation not allowed
 ```
 
-That is *not* `AccessDeniedException`, and it is *not* the transient
-"your account is currently being verified" message. It means **the model has not been
-granted to the account**.
-
-Diagnosed precisely (the probe does this automatically): the account has an **unaccepted
-model agreement** for `anthropic.claude-sonnet-4-6`, and attempting to accept it via the
-API is refused with:
+and, if you try to accept the model agreement programmatically:
 
 ```
 AccessDeniedException: You have not filled out the request form.
 Fill out the form before getting access.
 ```
 
-So the agreement cannot be accepted programmatically until the console form is submitted.
+The "request form" is the **Anthropic first-time use case details form**.
 
-**The fix — console, one time, about two minutes:**
+### The fix — console, one time
 
-1. Bedrock console, **in your project's region**
-2. **Model access** → find **Anthropic Claude Sonnet 4.x**
-3. **Request access** / **Modify model access**
-4. Fill out the use-case form → **Submit**
-5. Re-run `python tools/bedrock_probe.py --region <project region> --profile junxaws`
+1. Bedrock console → **Model catalog**
+2. Select **Anthropic Claude Sonnet 4.x**
+3. **Open in playground**
+4. Submit the **use case details** when prompted
+5. Re-run `python tools/bedrock_probe.py --region <region> --profile junxaws`
 
-After the form is approved, the agreement can be accepted (the probe will do it
-automatically, or the console does it on submit).
+Anthropic models are Marketplace-served, so the principal doing this needs Marketplace
+permissions — root/admin has them; a restricted IAM user would not.
 
-**Do not confuse this with the other two gates**, which look similar and have different
-fixes:
+### Three look-alike errors, three different fixes
 
 | Error | Meaning | Fix |
 |---|---|---|
 | `... your account is currently being verified` | New account, transient | Wait (AWS says <2h) |
-| `Operation not allowed` | Model not granted | Submit the model-access form |
-| `AccessDeniedException` (plain) | Often the same as above, older wording | Model access |
+| `Operation not allowed` | Model not granted yet | Submit the Anthropic use-case form |
+| `AccessDeniedException` (plain) | Often the same gate, older wording | Same as above |
 
-**Verified not the cause** (all tested and ruled out on this account): region (5 regions
-tried, including both Indian ones), model id (7 ids tried, including Amazon Nova, which
-needs no agreement at all — it fails identically), credentials (STS resolves), and the
-region SCPs (the new-AWS-experience SCPs explicitly allow `bedrock:InvokeModel` and
-`bedrock:*`). Amazon Nova also fails, so this is not an Anthropic-specific EULA issue —
-it is account-level model access.
+**Ruled out by testing on this account** — do not re-investigate these:
 
-Control-plane calls *do* work, which is the tell that it is a grant problem and not a
+- **Region:** 5 tried (ap-south-1, ap-south-2, us-east-1, us-west-2, eu-central-1).
+  Identical failure. Note `ap-south-1` lists **75 models (19 Claude)** and `ap-south-2`
+  lists 21 (12 Claude) — so Claude *is* offered in both Indian regions.
+- **Model id:** 7 tried, including `amazon.nova-micro-v1:0` and `amazon.nova-lite-v1:0`.
+  **Nova needs no use-case form and fails identically**, which is why this looked like
+  account gating rather than an Anthropic-specific form.
+- **API surface:** `Converse`, `ConverseStream` and `InvokeModel` all fail.
+- **Credentials:** STS resolves; control plane works.
+- **SCPs:** the new-AWS-experience SCPs explicitly allow `bedrock:*` and exempt
+  `bedrock:InvokeModel` from region denies.
+
+Control-plane calls work, which is the tell that this is a grant problem rather than a
 credentials or region problem:
 
 ```bash
@@ -168,21 +177,26 @@ python -c "import boto3;print(len(boto3.Session(profile_name='junxaws',region_na
 # -> 75
 ```
 
+**Which region is the project's?** `account.list_regions()` is the scriptable way to find
+out: `ap-south-2` shows `ENABLED` (explicitly opted in) while everything else is
+`ENABLED_BY_DEFAULT` or `DISABLED`. Worth checking, because a new-AWS-experience project
+is pinned to its own region and Strands defaults to us-west-2.
+
 ## 3. Region
 
-`us-west-2` is Strands' default. This account's project region is **`ap-south-1`**
-(Mumbai), set on the profile in `~/.aws/config`. Pass the region explicitly when it
-matters:
+`us-west-2` is Strands' default, which is usually **wrong** for a new-AWS-experience
+project. The live path takes an explicit region:
 
 ```bash
-python tools/bedrock_probe.py --region ap-south-1 --profile junxaws
+python -m nuskha.cli ask "what should atorvastatin 10mg cost?" --profile junxaws --region us-east-1
 ```
 
-Note the new-AWS-experience region SCPs: only your **project region**, `us-east-1` and
-`us-west-2` are usable, and outside the project region only a specific list of Bedrock
-actions is exempted. `InvokeModel` is on that exemption list; **`Converse`/`ConverseStream`
-is not** — and Strands calls `ConverseStream`. So a live agent run must happen in the
-project region.
+or via env: `AWS_PROFILE`, `AWS_REGION`, `BEDROCK_MODEL_ID`.
+
+Note the region SCPs: only your **project region**, `us-east-1` and `us-west-2` are usable.
+Outside the project region only a specific list of Bedrock actions is exempted, and
+`InvokeModel` is on that list while `Converse`/`ConverseStream` is not — so a live agent
+run (Strands calls `ConverseStream`) belongs in the project region.
 
 ## 4. The model
 
