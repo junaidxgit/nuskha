@@ -20,7 +20,7 @@ Open these, in this order, so nothing is hunting mid-take:
 Run these once so they are in shell history and the output is warm:
 
 ```bash
-PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
+PY=python    # or your interpreter; `python -m nuskha.cli ...` works as-is
 $PY -m nuskha.cli price atorvastatin 10mg
 $PY -m nuskha.cli check coldrif
 ```

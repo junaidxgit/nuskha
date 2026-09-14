@@ -14,7 +14,7 @@ nuskha/
 ## Run it
 
 ```bash
-PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
+PY=python    # or your interpreter; `python -m nuskha.cli ...` works as-is
 
 # deterministic - no model, no credentials, no network. Use this for the demo.
 $PY -m nuskha.cli price atorvastatin 10mg

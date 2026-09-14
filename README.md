@@ -213,7 +213,7 @@ and ReLife (Shape Pharma).
 ## Run it
 
 ```bash
-PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
+PY=python    # or your interpreter; `python -m nuskha.cli ...` works as-is
 
 $PY pipeline/fetch_nsq.py --since 2024-01        # ~4 min, 45 PDFs
 $PY pipeline/parse_nsq.py                        # ~3 min

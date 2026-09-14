@@ -6,11 +6,20 @@ Strands ships Bedrock as its default provider, so this is the only setup needed 
 Check current state with:
 
 ```bash
-PY="C:/Users/offic/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe"
-$PY -m nuskha.cli check-bedrock
+python -m nuskha.cli check-bedrock     # quick: are credentials present?
+python tools/bedrock_probe.py          # thorough: are they *usable*, and is
+                                       # model access granted?
 ```
 
-Two things have to be true. The command checks them in order, because each failure has a
+`check-bedrock` only looks for the presence of credentials. `tools/bedrock_probe.py` goes
+further and separates the four failures that look alike but need different fixes:
+credentials absent, credentials malformed, keys not usable (STS rejects them), and model
+access not granted. It makes one tiny inference call and never prints the secret.
+
+**The AWS CLI is not installed on this machine**, so `aws configure` is not an option.
+Write the files by hand, or use the probe to confirm what you wrote.
+
+Two things have to be true. The commands check them in order, because each failure has a
 different fix.
 
 ---
