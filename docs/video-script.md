@@ -140,7 +140,7 @@ $ python -m nuskha.cli check coldrif
 > contamination. NPPA for the legally binding price ceiling. Jan Aushadhi for the
 > government's generic price.
 >
-> Three thousand five hundred and ninety-one batch records, from January 2024 through July
+> Three thousand five hundred and ninety-one batch records, from April 2024 through July
 > 2026. Fifteen WHO alerts. Three hundred and forty-nine ceiling prices. Nineteen hundred
 > generic prices.
 >

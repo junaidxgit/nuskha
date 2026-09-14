@@ -16,7 +16,7 @@ It joins four Indian government sources that have never been joined:
 - **NPPA ceiling prices** — the legally binding maximum under the Drugs and Prices Control
   Order. Charging above it is illegal.
 - **Jan Aushadhi (PMBJP) generic prices** — what the government's own generic costs.
-- **CDSCO NSQ alerts** — batches that failed laboratory testing, 3,591 records from January
+- **CDSCO NSQ alerts** — batches that failed laboratory testing, 3,591 records from April
   2024 to July 2026.
 - **WHO Medical Product Alerts** — recalls, suspensions and contamination, 15 alerts.
 
