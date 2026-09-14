@@ -23,10 +23,16 @@ Run these once so they are in shell history and the output is warm:
 PY=python    # or your interpreter; `python -m nuskha.cli ...` works as-is
 $PY -m nuskha.cli price atorvastatin 10mg
 $PY -m nuskha.cli check coldrif
+$PY -m nuskha.cli ask "what should atorvastatin 10mg cost, and is it any good?" --offline --trace
 ```
 
-**Fallback if Bedrock misbehaves:** the deterministic commands need no AWS at all. The demo
-below is built on them on purpose, so it cannot fail on stage.
+**Nothing in this demo needs AWS.** Bedrock is unavailable on this account (see the agent
+shot below), and every command here is either deterministic or driven by the scripted
+model. That is deliberate: the demo cannot fail on stage, and it cannot be broken by a
+credential expiring mid-take.
+
+All four commands above were run and their output matches this script exactly. If a number
+on screen disagrees with the narration, trust the screen and re-read this file.
 
 ---
 
@@ -144,16 +150,36 @@ $ python -m nuskha.cli check coldrif
 **On screen:** back to the terminal.
 
 ```
-$ python -m nuskha.cli ask "what should atorvastatin 10mg cost?"
+$ python -m nuskha.cli ask "what should atorvastatin 10mg cost, and is it any good?" --offline --trace
 ```
 
 **Narration:**
 
-> And the agent itself, running on Strands with Amazon Bedrock.
+> And the agent itself, running on the Strands Agents SDK. Two tools dispatched for this
+> question — the price lookup and the quality-record lookup — with the results fed back
+> into the loop.
 
-*(If Bedrock is not working, skip this shot and say instead: "the agent runs the same three
-tools — here it is driven by a scripted model, which is how I test it without burning
-credits." Then run the scripted-model one-liner.)*
+*(The `tool ->` lines are the evidence that the loop is real. Point at them; do not cut
+them out.)*
+
+> `--offline` swaps the model for a scripted policy, so the demo cannot fail on stage. The
+> event loop, the tool dispatch and the results are the genuine Strands ones — only the
+> model is substituted.
+
+**Why this is the live-LLM shot and not Bedrock:** this AWS account is not authorised for
+Bedrock model invocation — every model, including Amazon Nova, returns
+`Operation not allowed`, and the console asks for a support case. That is an account-level
+approval, not a bug in the project, and it is outside our control on this deadline. The
+agent code itself is Bedrock-ready: `ask` without `--offline` builds a real `BedrockModel`
+and reaches the API. Do not burn take time on it.
+
+**If you do want a live model on screen and Bedrock gets approved later:**
+
+```bash
+$ python -m nuskha.cli ask "what should atorvastatin 10mg cost?" --profile junxaws --region us-east-1
+```
+
+*(Requires a fresh `aws login` first — the session expires in about 15 minutes.)*
 
 ---
 
@@ -245,6 +271,13 @@ deliberate tradeoff, and the fix is to resolve the primary source — which is o
 Yes. The deterministic commands need no credentials at all, which is why the demo uses them.
 The agent adds natural-language routing over the same three tools; it is not load-bearing for
 correctness.
+
+**"Is the agent actually using Bedrock?"**
+The agent is built on Strands with `BedrockModel`, and the live path is wired up and reaches
+the Bedrock API — the code is not stubbed. This particular AWS account is not yet authorised
+for Bedrock model invocation, so the video runs the same loop with a scripted model:
+identical event loop, identical tool dispatch, identical results. Say that plainly if asked.
+It is an account approval, and claiming otherwise would be the dishonest answer.
 
 ## Recording
 
