@@ -19,11 +19,14 @@ portable `gh` in `.tools/` (the keyring credential became readable on the second
 - [x] Architecture diagram embedded in the README top; verified GitHub-safe.
 - [x] **Copyright line** reads "Copyright (c) 2026 Junaid"; GitHub still reports MIT.
 
-## 2. AWS Builder ID
+## 2. AWS Builder ID — DONE
 
-Required for submission, and **separate from an AWS account**. Sign up at `builder.aws.com`.
+Required for submission, and **separate from an AWS account**.
 
-- [ ] Builder ID created, email verified
+- [x] Builder ID created: **@junxaws**
+- Note: Devpost asks for the **email address** associated with the Builder ID, not the
+  Builder Center alias. If `@junxaws` is the alias, paste the signup email in the form and
+  put `@junxaws` in the "AWS Builder Center alias / profile" field if one is offered.
 
 ## 3. Bedrock (optional but lifts the score)
 
@@ -58,7 +61,7 @@ Must be public on YouTube or Vimeo, and must cover (1) the problem, (2) who it's
 - [ ] Public repo URL
 - [ ] Architecture diagram: `docs/architecture.svg`
 - [ ] Video URL
-- [ ] AWS Builder ID
+- [x] AWS Builder ID: **@junxaws**
 - [ ] Optional live demo link
 - [ ] Submitted **Sep 14 evening**
 
