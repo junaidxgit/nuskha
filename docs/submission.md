@@ -70,11 +70,26 @@ implementation, and that is demonstrable on three paths: `--offline` (scripted m
 
 ## 5. Demo video — required, max 5 minutes
 
-Must be public on YouTube or Vimeo, and must cover (1) the problem, (2) who it's for,
-(3) why it matters. Slides, screen recording and voiceover are fine; no camera needed.
+Rules, verbatim:
+
+> "Demo video (maximum 5 minutes) that includes ... **Demonstrates** of your working project"
+> "Slides, screen recordings, and voiceover are all fine. No need to appear on camera"
+> "Pitch **must** cover: (1) the problem you're solving, (2) who it's for, (3) why it matters"
+
+**Slides are explicitly allowed** — but they cannot be the whole video, because the video has
+to *demonstrate the project working*. Slides carry the framing; the screen recording carries
+the score. The script in `docs/video-script.md` is built that way: title cards for the
+problem, terminal and browser for the demo.
+
+On hosting: the rules page states a **PUBLIC** requirement only for the **code repo**. It does
+not explicitly require the video to be public — but judges must be able to watch it, so
+publish it **public** (not unlisted) anyway. It costs nothing and removes the risk of a
+judge hitting a permissions wall.
 
 - [ ] Recorded, under 5 minutes
-- [ ] Uploaded, set **public** (not unlisted — the rules say public)
+- [ ] Demonstrates the working project on screen (not slides alone)
+- [ ] Pitch covers problem / who it's for / why it matters
+- [ ] Uploaded **public** (safest, even though only the repo is explicitly required to be)
 - [ ] Link works in an incognito window
 
 ## 6. Submit
