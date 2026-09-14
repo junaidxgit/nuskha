@@ -1,0 +1,23 @@
+# Nuskha runtime dependencies.
+#
+# Minimal on purpose. The deterministic commands (price / check / report / json)
+# need NO third-party package at all - just the standard library and the SQLite
+# database. The agent needs Strands; Bedrock adds boto3. The ingestion pipeline
+# needs the PDF readers.
+#
+#   pip install -r requirements.txt        # everything
+#   pip install strands-agents             # just the agent
+#
+# Versions are the ones this was built and tested against.
+
+# --- the agent (required for `nuskha.cli ask`) ---
+strands-agents>=1.55.0
+
+# --- Amazon Bedrock model provider (required for a real LLM; not needed
+#     for `ask --offline`, which uses the bundled scripted model) ---
+boto3>=1.43.0
+
+# --- data ingestion only (pipeline/). Not needed to run the agent or the
+#     deterministic commands, since the parsed JSONL is tracked in the repo. ---
+pdfplumber>=0.11.0
+pypdf>=6.0.0

@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -67,11 +69,44 @@ def is_combination(text: str) -> bool:
 def _connect(db: Path | None = None) -> sqlite3.Connection:
     path = Path(db) if db else DEFAULT_DB
     if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found - run: python pipeline/build_db.py")
+        # The database is ~3MB of derived data, so it is not tracked in git -
+        # only the JSONL it is built from is. Anyone who clones the repo would
+        # otherwise hit an immediate crash on the first documented command.
+        # Build it on demand instead of making the user read an error and run
+        # a separate step. Cheap (~1s) and idempotent.
+        if _build_db_if_possible(path):
+            pass
+        else:
+            raise FileNotFoundError(
+                f"{path} not found and could not be built from the tracked "
+                f"JSONL in {path.parent}. Run: python pipeline/build_db.py")
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     return con
+
+
+def _build_db_if_possible(path: Path) -> bool:
+    """Build `path` from the tracked JSONL files. True on success.
+
+    Deliberately tolerant: if the builder is unavailable or the source data is
+    absent, return False and let the caller raise its own clear error rather
+    than surfacing a stack trace about the build.
+    """
+    source = path.parent
+    needed = ("nsq_records.jsonl", "nppa_ceiling_prices.jsonl")
+    if not all((source / n).exists() for n in needed):
+        return False
+    builder = Path(__file__).resolve().parent.parent / "pipeline" / "build_db.py"
+    if not builder.exists():
+        return False
+    try:
+        result = subprocess.run(
+            [sys.executable, str(builder)],
+            capture_output=True, text=True, timeout=300, cwd=str(builder.parent.parent),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and path.exists()
 
 
 def _like(column: str, term: str) -> tuple[str, list[str]]:
