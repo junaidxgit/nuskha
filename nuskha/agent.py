@@ -62,6 +62,35 @@ pharmacologist. Short sentences. No hedging, no filler, no emoji.
 """
 
 
+def build_ollama_model(model_id: str | None = None, host: str | None = None,
+                       force_cpu: bool = True):
+    """Build a model backed by a local Ollama server.
+
+    This is the credential-free *live* LLM path: a real model, a real token
+    stream, real tool calls - no AWS account, no API key, no network.
+
+    `force_cpu` matters on this machine: the GTX 1650 (compute 7.5) cannot run
+    the bundled llama.cpp kernels, and the GPU path dies with
+    "CUDA error: a PTX JIT compilation failed". Running on CPU avoids it, at the
+    cost of roughly a minute or two per question for a 2B model.
+
+    Also note the bundled models are reasoning models - they emit a `thinking`
+    field before `content`. A small `num_predict` can be consumed entirely by
+    the reasoning and return an empty answer, so the token budget is generous.
+    """
+    import os
+
+    from strands.models.ollama import OllamaModel
+
+    model_id = model_id or os.environ.get("OLLAMA_MODEL") or "qwen3.5:2b"
+    host = host or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434"
+
+    options: dict = {"num_predict": 512}
+    if force_cpu:
+        options["num_gpu"] = 0
+    return OllamaModel(host=host, model_id=model_id, options=options)
+
+
 def build_bedrock_model(profile: str | None = None, region: str | None = None,
                         model_id: str | None = None):
     """Build a Bedrock model, honouring env vars so no code edit is needed.

@@ -1,17 +1,24 @@
 """Nuskha CLI.
 
-Two modes:
+Three ways to run the agent, in increasing order of external dependency:
 
   deterministic  - calls the query layer directly and formats the answer. No
-                   model, no credentials, no network. This is what the demo
-                   video should use, because it cannot fail on stage.
-  agent          - runs the real Strands agent. Needs model credentials.
+                   model, no credentials, no network.
+  --ollama       - a LIVE model on a local Ollama server. Real token stream and
+                   real tool calls, no AWS account and no API key. Slower on
+                   CPU. See nuskha/agent.py for why CPU is forced.
+  (default)      - the real Strands agent on Amazon Bedrock. Needs credentials
+                   and model access on the account.
+
+`--offline` drives the same Strands loop with a scripted model: real tool
+dispatch, real results, no model at all.
 
 Usage:
     python -m nuskha.cli price atorvastatin 10mg
     python -m nuskha.cli check coldrif
     python -m nuskha.cli report atorvastatin 10mg
-    python -m nuskha.cli ask "what should atorvastatin 10mg cost?"
+    python -m nuskha.cli ask "what should atorvastatin 10mg cost?" --ollama
+    python -m nuskha.cli ask "what should atorvastatin 10mg cost?" --offline --trace
 """
 
 from __future__ import annotations
@@ -308,6 +315,12 @@ def main(argv: list[str] | None = None) -> int:
         help="override the Bedrock model id (default: $BEDROCK_MODEL_ID, then "
              "Strands' default).",
     )
+    p4.add_argument(
+        "--ollama", nargs="?", const="qwen3.5:2b", default="", metavar="MODEL",
+        help="run on a local Ollama model instead of Bedrock - a LIVE model with "
+             "no AWS credentials, no API key and no network. Defaults to "
+             "qwen3.5:2b. Slower (CPU), but genuine tool calling.",
+    )
 
     p5 = sub.add_parser("json", help="raw query output, for piping")
     p5.add_argument("salt")
@@ -339,16 +352,20 @@ def main(argv: list[str] | None = None) -> int:
             from nuskha.mock_model import ScriptedModel
             model = ScriptedModel(verbose=False)
         else:
-            # Live Bedrock. Built explicitly so the profile/region can be chosen
+            # Live model. Bedrock by default, or a local Ollama model with
+            # --ollama. Built explicitly so profile/region/model can be chosen
             # without editing code - a new-AWS-experience project is pinned to
             # its own region, and Strands' default (us-west-2) is usually wrong.
             try:
-                from nuskha.agent import build_bedrock_model
-                model = build_bedrock_model(profile=args.profile or None,
-                                            region=args.region or None,
-                                            model_id=args.model or None)
+                from nuskha.agent import build_bedrock_model, build_ollama_model
+                if args.ollama:
+                    model = build_ollama_model(args.ollama)
+                else:
+                    model = build_bedrock_model(profile=args.profile or None,
+                                                region=args.region or None,
+                                                model_id=args.model or None)
             except Exception as exc:
-                print(f"could not build the Bedrock model: {type(exc).__name__}: {exc}",
+                print(f"could not build the model: {type(exc).__name__}: {exc}",
                       file=sys.stderr)
                 return 2
         try:
@@ -366,9 +383,10 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"\nagent run failed: {type(exc).__name__}: {exc}", file=sys.stderr)
             print("Bedrock needs working credentials AND model access. Diagnose with "
-                  "`check-bedrock`, or run the same agent loop with no AWS at all "
-                  "using --offline. The deterministic commands (price/check/report) "
-                  "need no model either.", file=sys.stderr)
+                  "`check-bedrock`. Alternatives that need no AWS at all: "
+                  "`--ollama` for a real local model, or `--offline` for the same "
+                  "loop driven by a scripted model. The deterministic commands "
+                  "(price/check/report) need no model either.", file=sys.stderr)
             return 1
         print(answer)
     return 0
