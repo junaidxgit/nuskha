@@ -17,7 +17,7 @@ portable `gh` in `.tools/` (the keyring credential became readable on the second
       public-health, price-transparency, strands-agents, healthcare
 - [x] **MIT license** confirmed detected by GitHub (`license.spdx_id: MIT` via API).
 - [x] Architecture diagram embedded in the README top; verified GitHub-safe.
-- [x] **Copyright line** reads "Copyright (c) 2026 Junaid"; GitHub still reports MIT.
+- [x] **Copyright line** reads "Copyright (c) 2026 Nuskha"; GitHub still reports MIT.
 
 ## 2. AWS Builder ID — DONE
 
