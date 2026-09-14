@@ -29,14 +29,34 @@ Required for submission, and **separate from an AWS account**.
 Paste the **email** into Devpost's "AWS Builder ID" field -- that is the actual identifier.
 `@junxaws` is the public Builder Center alias, which is a different thing.
 
-## 3. Bedrock (optional but lifts the score)
+## 3. Bedrock — BLOCKED at the account level, not fixable from here
 
-See `docs/aws-setup.md`. Two steps: credentials, then model access.
+**Status: not achievable on this AWS account.** Ruled out by testing, in order:
+credentials (STS resolves, root user), region (5 tried), model id (7 tried,
+**including Amazon Nova**, which needs no Anthropic approval and fails identically),
+account plan (**PAID**, ACTIVE, $120 credits), Bedrock quotas (non-zero), spend limits
+(none configured), and the new-AWS-experience SCPs (which explicitly allow `bedrock:*`).
 
-- [ ] `python -m nuskha.cli check-bedrock` reports **Ready**
-- [ ] `python -m nuskha.cli ask "what should atorvastatin 10mg cost?"` returns a real answer
+Control-plane calls succeed (`list_foundation_models` returns 75 models) while **every**
+inference call returns `ValidationException: Operation not allowed`. Submitting the
+Anthropic first-time use-case form returns *"Your account is not authorized to perform this
+action. Please create a support case."*
 
-## 4. Live demo link (optional, scores higher) — DONE
+That is an account-authorisation hold. See `docs/aws-setup.md` for the full diagnosis and
+`tools/bedrock_probe.py` to re-check.
+
+- [ ] ~~`check-bedrock` reports Ready~~ — blocked on AWS, see above
+- [x] A **support case** is the only remaining path; turnaround is unpredictable
+- [x] **The agent is Bedrock-ready regardless**: `ask` without `--offline` builds a real
+      `BedrockModel` and reaches the API. It fails on authorisation, not on code.
+- [x] **A live model is available anyway** via `ask --ollama` (local Ollama, real tool
+      calls, no AWS at all)
+
+**This does not block submission.** The scoring criterion is a working, non-trivial Strands
+implementation, and that is demonstrable on three paths: `--offline` (scripted model),
+`--ollama` (live local model), and the Bedrock code path itself.
+
+## 4. Live demo link — DONE
 
 **https://junaidxgit.github.io/nuskha/** — GitHub Pages, served from `/docs` on `main`.
 `ui/build_ui.py` regenerates both `ui/index.html` and `docs/index.html` together.
@@ -44,7 +64,8 @@ See `docs/aws-setup.md`. Two steps: credentials, then model access.
 - [x] GitHub Pages enabled via API, source `main` / `/docs`
 - [x] Both HTML copies are tracked in git (the blanket `*.html` gitignore rule had been
       silently excluding them — fixed with explicit `!` exceptions)
-- [ ] Verify the URL loads in an incognito window after the first deployment finishes
+- [x] **Verified serving**: HTTP 200, 1,602,947 bytes, correct title, and the embedded
+      data (atorvastatin / coldrif / SR-13) all present in the fetched HTML
 - [ ] Paste the URL into the submission
 
 ## 5. Demo video — required, max 5 minutes
