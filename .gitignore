@@ -28,3 +28,7 @@ wp.json
 
 # local tooling
 .tools/
+
+# agent tooling config (AWS Agent Toolkit writes machine-specific rules here)
+AGENTS.md
+*.bak-agent-toolkit
