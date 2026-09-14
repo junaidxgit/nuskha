@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import os
 import sys
 from pathlib import Path
 
 CRED_PATH = Path.home() / ".aws" / "credentials"
 CONFIG_PATH = Path.home() / ".aws" / "config"
+BEARER_ENV = "AWS_BEARER_TOKEN_BEDROCK"
 
 PLACEHOLDER = ("PASTE_YOUR", "YOUR_KEY", "AWS_ACCESS_KEY_ID_HERE")
 
@@ -31,6 +33,21 @@ def fail(msg: str) -> None:
 
 def ok(msg: str) -> None:
     print(f"  ok    {msg}")
+
+
+def read_bearer_token() -> str | None:
+    """The Bedrock API key path: a bearer token in an env var, no IAM keys.
+
+    Azure-OpenAI-style. Simpler, but short-term keys expire with the console
+    session (max 12h) and long-term ones are for exploration only. If this is
+    set it takes precedence, mirroring botocore's own behaviour.
+    """
+    token = (os.environ.get(BEARER_ENV) or "").strip()
+    if not token:
+        return None
+    ok(f"{BEARER_ENV} set ({len(token)} chars, "
+       f"prefix {token.split('-')[0]!r})")
+    return token
 
 
 def read_creds() -> tuple[str, str] | None:
@@ -87,31 +104,60 @@ def main() -> int:
     print("Bedrock readiness probe")
     print("-" * 70)
 
-    print("\n1. credentials")
-    creds = read_creds()
-    if creds is None:
-        print("\nStopping here - fix credentials first.")
-        print(f"Edit {CRED_PATH} and paste your keys.")
+    # Imported here rather than per-branch: the bearer-token path skips the STS
+    # step, so a branch-local import left boto3 undefined for it.
+    try:
+        import boto3
+        import json as _json
+    except ImportError as exc:
+        fail(f"boto3 is not installed: {exc}")
+        print("  pip install -r requirements.txt")
         return 1
+
+    print("\n1. credentials")
+    token = read_bearer_token()
+    creds = None
+    if token:
+        print("      using the Bedrock API key (bearer token) path; IAM keys ignored")
+        ok("credentials present via bearer token")
+    else:
+        creds = read_creds()
+        if creds is None:
+            print()
+            print("Neither route is configured. Pick one:")
+            print()
+            print(f"  A. Bedrock API key (simplest) - generate one in the Bedrock")
+            print(f"     console under API keys, then set:")
+            print(f'       export {BEARER_ENV}="<key>"      (macOS/Linux/bash)')
+            print(f'       setx {BEARER_ENV} "<key>"        (Windows, new shell)')
+            print()
+            print(f"  B. IAM access keys - edit {CRED_PATH}")
+            print("     and paste aws_access_key_id / aws_secret_access_key.")
+            return 1
 
     print("\n2. region")
     check_region(args.region)
 
     print("\n3. identity (STS)")
-    key_id, secret = creds
-    try:
-        import boto3
-        sts = boto3.client(
-            "sts", region_name=args.region,
-            aws_access_key_id=key_id, aws_secret_access_key=secret)
-        who = sts.get_caller_identity()
-        ok(f"account {who['Account']}  arn {who['Arn']}")
-    except Exception as exc:
-        fail(f"{type(exc).__name__}: {str(exc)[:200]}")
-        print("\n  The keys are present but not usable. Usual causes: keys were")
-        print("  revoked, the IAM user lacks permissions, or the machine clock")
-        print("  is off (signature errors).")
-        return 1
+    if token:
+        # STS does not accept bearer tokens - it is a SigV4 service. Skipping is
+        # correct, not a gap: the inference call below is the real test.
+        print("      skipped - STS does not accept bearer tokens; step 4 is the")
+        print("      real test of whether the key works.")
+    else:
+        key_id, secret = creds
+        try:
+            sts = boto3.client(
+                "sts", region_name=args.region,
+                aws_access_key_id=key_id, aws_secret_access_key=secret)
+            who = sts.get_caller_identity()
+            ok(f"account {who['Account']}  arn {who['Arn']}")
+        except Exception as exc:
+            fail(f"{type(exc).__name__}: {str(exc)[:200]}")
+            print("\n  The keys are present but not usable. Usual causes: keys were")
+            print("  revoked, the IAM user lacks permissions, or the machine clock")
+            print("  is off (signature errors).")
+            return 1
 
     print("\n4. model access + a real inference")
     model_id = args.model
@@ -131,11 +177,15 @@ def main() -> int:
     print(f"  ...   model: {model_id}  ({source})")
 
     try:
-        import json
-        rt = boto3.client(
-            "bedrock-runtime", region_name=args.region,
-            aws_access_key_id=key_id, aws_secret_access_key=secret)
-        body = json.dumps({
+        if token:
+            # The key is already in the environment, so the default chain finds
+            # it. Do not pass explicit keys, or SigV4 would be used instead.
+            rt = boto3.client("bedrock-runtime", region_name=args.region)
+        else:
+            rt = boto3.client(
+                "bedrock-runtime", region_name=args.region,
+                aws_access_key_id=key_id, aws_secret_access_key=secret)
+        body = _json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 32,
             "messages": [{"role": "user", "content": "Reply with the single word: ready"}],
@@ -149,7 +199,11 @@ def main() -> int:
         fail(f"{name}: {str(exc)[:220]}")
         low = str(exc).lower()
         print()
-        if "accessdenied" in low or "not authorized" in low:
+        if "invalid api key format" in low:
+            print("  -> The key is malformed. Bedrock API keys must start with a")
+            print("     specific prefix. Copy the whole key, with no whitespace or")
+            print("     stray quotes, when setting the environment variable.")
+        elif "accessdenied" in low or "not authorized" in low:
             print("  -> Model access is not granted for this model in this region.")
             print("     Console -> Bedrock -> Model access -> Modify -> tick Anthropic")
             print("     Claude -> submit. Approval is usually immediate.")

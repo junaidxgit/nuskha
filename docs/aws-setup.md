@@ -24,12 +24,39 @@ different fix.
 
 ---
 
-## 1. Credentials
+## 1. Credentials — pick one of two routes
 
 Not currently configured on this machine — `~/.aws/` exists but is empty, and no
-`AWS_ACCESS_KEY_ID` is set.
+`AWS_ACCESS_KEY_ID` is set. Either route below works; Bedrock does not need both.
 
-**Option A — credentials file** (survives reboots; recommended). Create
+### Route A — a Bedrock API key (simplest)
+
+Bedrock now issues its own keys, used as a bearer token instead of AWS SigV4
+credentials. No IAM user to create.
+
+Bedrock console → left nav **API keys** → either tab:
+
+- **Short-term** — `Generate short-term API keys`. Expires with your console session
+  (max 12 hours). This is the recommended type.
+- **Long-term** — `Generate long-term API keys`, choose an expiry. AWS labels these
+  *for exploration only*, which is exactly this use.
+
+Then set it in the shell:
+
+```bash
+export AWS_BEARER_TOKEN_BEDROCK="<key>"      # macOS/Linux/bash
+setx AWS_BEARER_TOKEN_BEDROCK "<key>"        # Windows; needs a NEW shell
+```
+
+`botocore` reads that variable automatically for the `bedrock-runtime` client, so
+**Strands picks it up with no code change**. Verified on this machine.
+
+Watch the expiry: a long-term key still dies on its date, and a short-term one dies
+when your console session ends. If the demo suddenly 403s, check this first.
+
+### Route B — IAM access keys
+
+**Route B, file form** (survives reboots). Create
 `C:\Users\offic\.aws\credentials`:
 
 ```ini
@@ -48,7 +75,7 @@ region = us-west-2
 Keys come from the AWS console: **IAM → Users → your user → Security credentials →
 Create access key**. Use a dedicated user rather than the root account.
 
-**Option B — environment variables** (per-shell, disappears when the terminal closes):
+**Route B, environment-variable form** (per-shell, disappears when the terminal closes):
 
 ```bash
 export AWS_ACCESS_KEY_ID=...
