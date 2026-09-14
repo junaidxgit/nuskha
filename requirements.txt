@@ -17,6 +17,12 @@ strands-agents>=1.55.0
 #     for `ask --offline`, which uses the bundled scripted model) ---
 boto3>=1.43.0
 
+# --- required ONLY when credentials come from `aws login` (the new AWS
+#     experience) rather than static IAM keys or a Bedrock API key.
+#     Without it, boto3 raises MissingDependencyException: "Using the login
+#     credential provider requires an additional dependency" ---
+botocore[crt]>=1.43.0
+
 # --- data ingestion only (pipeline/). Not needed to run the agent or the
 #     deterministic commands, since the parsed JSONL is tracked in the repo. ---
 pdfplumber>=0.11.0

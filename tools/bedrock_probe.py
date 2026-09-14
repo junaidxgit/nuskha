@@ -1,13 +1,18 @@
-"""One-shot Bedrock readiness probe, so testing does not need the AWS CLI.
+"""One-shot Bedrock readiness probe.
 
-The AWS CLI is not installed on this machine, so `aws configure` is not an
-option. This reads the same ~/.aws/credentials file that Strands reads, and
-tells you which of the four things is actually wrong - credentials missing,
-credentials malformed, model access not granted, or region/model mismatch.
-Those four produce similar-looking errors and each has a different fix.
+Tells you which of the things that look alike is actually wrong - credentials
+missing, credentials malformed, the login session expired, model access not
+granted, or a region/model mismatch. Each has a different fix.
+
+Three credential routes are supported, checked in the order botocore uses:
+
+  A. Bedrock API key   - a bearer token in AWS_BEARER_TOKEN_BEDROCK
+  B. aws login session - a `login_session` in ~/.aws/config (new AWS experience);
+                         needs `botocore[crt]` installed for boto3 to read it
+  C. IAM access keys   - aws_access_key_id / aws_secret_access_key
 
     python tools/bedrock_probe.py
-    python tools/bedrock_probe.py --region ap-south-1
+    python tools/bedrock_probe.py --region ap-south-1 --profile junxaws
 
 Never prints the secret key. Read-only: makes a single tiny inference call.
 """
@@ -48,6 +53,63 @@ def read_bearer_token() -> str | None:
     ok(f"{BEARER_ENV} set ({len(token)} chars, "
        f"prefix {token.split('-')[0]!r})")
     return token
+
+
+def find_login_profiles() -> list[str]:
+    """Profiles backed by `aws login` rather than static keys.
+
+    `aws login` writes `login_session = arn:...` into the profile's section of
+    ~/.aws/config and puts NOTHING in ~/.aws/credentials. A probe that only
+    reads the credentials file therefore reports "not configured" for a
+    perfectly working session - so this route has to be checked explicitly.
+    """
+    if not CONFIG_PATH.exists():
+        return []
+    cp = configparser.ConfigParser()
+    try:
+        cp.read(CONFIG_PATH)
+    except configparser.Error:
+        return []
+    found = []
+    for section in cp.sections():
+        if "login_session" in cp[section]:
+            # sections are named "[profile foo]" (or bare "[default]")
+            name = section.split("profile ", 1)[-1] if section.startswith("profile ") \
+                else section
+            found.append(name)
+    return found
+
+
+def check_login_profile(profile: str, region: str) -> bool:
+    """Confirm a login-session profile can actually produce credentials."""
+    try:
+        import boto3
+    except ImportError as exc:
+        fail(f"boto3 is not installed: {exc}")
+        return False
+    try:
+        sess = boto3.Session(profile_name=profile, region_name=region)
+        who = sess.client("sts").get_caller_identity()
+        ok(f"login session profile {profile!r} works - "
+           f"account {who['Account']}  arn {who['Arn']}")
+        return True
+    except Exception as exc:
+        name = type(exc).__name__
+        fail(f"{name}: {str(exc)[:200]}")
+        low = str(exc).lower()
+        if "crt" in low or "missing dependency" in low:
+            print()
+            print("  -> boto3 cannot read `aws login` credentials without the CRT")
+            print("     extra. Install it:")
+            print('       pip install "botocore[crt]"')
+        elif "expired" in low or "invalid" in low or "grant" in low:
+            print()
+            print("  -> The login session has expired. The token file still sitting")
+            print("     in ~/.aws/login/cache/ does NOT mean it is valid.")
+            print("     Re-authenticate (must run in a real terminal, and the")
+            print("     process needs to be able to WRITE to ~/.aws/):")
+            print(f"       aws login --region {region} --profile {profile}")
+        return False
 
 
 def read_creds() -> tuple[str, str] | None:
@@ -97,6 +159,8 @@ def check_region(region: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--region", default="us-west-2")
+    ap.add_argument("--profile", default="",
+                    help="AWS profile to use (needed for `aws login` sessions)")
     ap.add_argument("--model", default="",
                     help="override the model id (default: what agent.py uses)")
     args = ap.parse_args()
@@ -117,23 +181,45 @@ def main() -> int:
     print("\n1. credentials")
     token = read_bearer_token()
     creds = None
+    login_ok = False
+    profile = args.profile
+
     if token:
-        print("      using the Bedrock API key (bearer token) path; IAM keys ignored")
+        print("      using the Bedrock API key (bearer token) path; other routes ignored")
         ok("credentials present via bearer token")
     else:
-        creds = read_creds()
-        if creds is None:
-            print()
-            print("Neither route is configured. Pick one:")
-            print()
-            print(f"  A. Bedrock API key (simplest) - generate one in the Bedrock")
-            print(f"     console under API keys, then set:")
-            print(f'       export {BEARER_ENV}="<key>"      (macOS/Linux/bash)')
-            print(f'       setx {BEARER_ENV} "<key>"        (Windows, new shell)')
-            print()
-            print(f"  B. IAM access keys - edit {CRED_PATH}")
-            print("     and paste aws_access_key_id / aws_secret_access_key.")
-            return 1
+        # Route B: an `aws login` session. This leaves ~/.aws/credentials empty,
+        # so it MUST be checked before concluding nothing is configured.
+        if not profile:
+            found = find_login_profiles()
+            if found:
+                profile = found[0]
+                if len(found) > 1:
+                    print(f"  note  {len(found)} login profiles found: {', '.join(found)}")
+                    print(f"        probing {profile!r}; use --profile to pick another")
+        if profile and profile in find_login_profiles():
+            print(f"      route: aws login session (profile {profile!r})")
+            login_ok = check_login_profile(profile, args.region)
+            if not login_ok:
+                return 1
+        else:
+            creds = read_creds()
+            if creds is None:
+                print()
+                print("No credential route is configured. Pick one:")
+                print()
+                print(f"  A. Bedrock API key (simplest) - generate one in the Bedrock")
+                print(f"     console under API keys, then set:")
+                print(f'       export {BEARER_ENV}="<key>"      (macOS/Linux/bash)')
+                print(f'       setx {BEARER_ENV} "<key>"        (Windows, new shell)')
+                print()
+                print(f"  B. aws login session (new AWS experience) - run:")
+                print(f"       aws login --region {args.region} --profile <name>")
+                print(f"     then pass --profile <name> here. Requires `botocore[crt]`.")
+                print()
+                print(f"  C. IAM access keys - edit {CRED_PATH}")
+                print("     and paste aws_access_key_id / aws_secret_access_key.")
+                return 1
 
     print("\n2. region")
     check_region(args.region)
@@ -144,6 +230,9 @@ def main() -> int:
         # correct, not a gap: the inference call below is the real test.
         print("      skipped - STS does not accept bearer tokens; step 4 is the")
         print("      real test of whether the key works.")
+    elif login_ok:
+        # Already verified by check_login_profile above.
+        print("      already verified in step 1 via the login session.")
     else:
         key_id, secret = creds
         try:
@@ -177,7 +266,12 @@ def main() -> int:
     print(f"  ...   model: {model_id}  ({source})")
 
     try:
-        if token:
+        if login_ok:
+            # Let the session resolve its own credentials; passing explicit keys
+            # would force SigV4 and bypass the login provider entirely.
+            rt = boto3.Session(profile_name=profile,
+                               region_name=args.region).client("bedrock-runtime")
+        elif token:
             # The key is already in the environment, so the default chain finds
             # it. Do not pass explicit keys, or SigV4 would be used instead.
             rt = boto3.client("bedrock-runtime", region_name=args.region)
@@ -203,6 +297,13 @@ def main() -> int:
             print("  -> The key is malformed. Bedrock API keys must start with a")
             print("     specific prefix. Copy the whole key, with no whitespace or")
             print("     stray quotes, when setting the environment variable.")
+        elif "being verified" in low or "operation not allowed" in low:
+            print("  -> The ACCOUNT is still being verified, not a config problem.")
+            print("     New AWS-experience accounts cannot invoke Bedrock until")
+            print("     verification completes (AWS says under 2 hours). Credentials,")
+            print("     region and model id are all fine - control-plane calls like")
+            print("     list_foundation_models succeed. WAIT and re-run; do not")
+            print("     re-request model access or switch regions, neither will help.")
         elif "accessdenied" in low or "not authorized" in low:
             print("  -> Model access is not granted for this model in this region.")
             print("     Console -> Bedrock -> Model access -> Modify -> tick Anthropic")
@@ -219,7 +320,10 @@ def main() -> int:
 
     print("\n" + "-" * 70)
     print("Ready. Run the real agent with:")
-    print('  python -m nuskha.cli ask "what should atorvastatin 10mg cost?"')
+    if profile and login_ok:
+        print(f'  AWS_PROFILE={profile} python -m nuskha.cli ask "what should atorvastatin 10mg cost?"')
+    else:
+        print('  python -m nuskha.cli ask "what should atorvastatin 10mg cost?"')
     return 0
 
 
