@@ -109,26 +109,64 @@ export AWS_DEFAULT_REGION=us-west-2
 Never commit any of these. `~/.aws/` is outside the repo, and `.gitignore` already
 excludes `.env`.
 
-## 2. Model access
+## 2. Model access — the actual blocker on this account
 
-Bedrock does not grant model access by default — it has to be requested per model, per
-account. Without it every call fails with `AccessDeniedException`, which reads like a
-credentials problem and wastes an hour.
+Bedrock does not grant model access by default. **On this account the model has never been
+granted**, and the error it returns is easy to misread:
 
-AWS console → **Bedrock** → **Model access** → **Modify model access** → tick the
-**Anthropic Claude** models → submit. Approval is usually immediate.
+```
+ValidationException: Operation not allowed
+```
 
-**But check which `AccessDenied` you have.** A brand-new account returns
-`AccessDeniedException ... Your account is currently being verified. Verification normally
-takes less than 2 hours.` That is not model access and not a config error — the account
-simply cannot infer yet. Confirm it by checking a control-plane call, which *does* work:
+That is *not* `AccessDeniedException`, and it is *not* the transient
+"your account is currently being verified" message. It means **the model has not been
+granted to the account**.
+
+Diagnosed precisely (the probe does this automatically): the account has an **unaccepted
+model agreement** for `anthropic.claude-sonnet-4-6`, and attempting to accept it via the
+API is refused with:
+
+```
+AccessDeniedException: You have not filled out the request form.
+Fill out the form before getting access.
+```
+
+So the agreement cannot be accepted programmatically until the console form is submitted.
+
+**The fix — console, one time, about two minutes:**
+
+1. Bedrock console, **in your project's region**
+2. **Model access** → find **Anthropic Claude Sonnet 4.x**
+3. **Request access** / **Modify model access**
+4. Fill out the use-case form → **Submit**
+5. Re-run `python tools/bedrock_probe.py --region <project region> --profile junxaws`
+
+After the form is approved, the agreement can be accepted (the probe will do it
+automatically, or the console does it on submit).
+
+**Do not confuse this with the other two gates**, which look similar and have different
+fixes:
+
+| Error | Meaning | Fix |
+|---|---|---|
+| `... your account is currently being verified` | New account, transient | Wait (AWS says <2h) |
+| `Operation not allowed` | Model not granted | Submit the model-access form |
+| `AccessDeniedException` (plain) | Often the same as above, older wording | Model access |
+
+**Verified not the cause** (all tested and ruled out on this account): region (5 regions
+tried, including both Indian ones), model id (7 ids tried, including Amazon Nova, which
+needs no agreement at all — it fails identically), credentials (STS resolves), and the
+region SCPs (the new-AWS-experience SCPs explicitly allow `bedrock:InvokeModel` and
+`bedrock:*`). Amazon Nova also fails, so this is not an Anthropic-specific EULA issue —
+it is account-level model access.
+
+Control-plane calls *do* work, which is the tell that it is a grant problem and not a
+credentials or region problem:
 
 ```bash
 python -c "import boto3;print(len(boto3.Session(profile_name='junxaws',region_name='ap-south-1').client('bedrock').list_foundation_models()['modelSummaries']))"
+# -> 75
 ```
-
-A healthy model list (75 in ap-south-1) with failing inference means **wait, don't debug**.
-Requesting model access or switching regions will not change it.
 
 ## 3. Region
 
@@ -139,6 +177,12 @@ matters:
 ```bash
 python tools/bedrock_probe.py --region ap-south-1 --profile junxaws
 ```
+
+Note the new-AWS-experience region SCPs: only your **project region**, `us-east-1` and
+`us-west-2` are usable, and outside the project region only a specific list of Bedrock
+actions is exempted. `InvokeModel` is on that exemption list; **`Converse`/`ConverseStream`
+is not** — and Strands calls `ConverseStream`. So a live agent run must happen in the
+project region.
 
 ## 4. The model
 

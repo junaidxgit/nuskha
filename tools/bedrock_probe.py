@@ -40,6 +40,46 @@ def ok(msg: str) -> None:
     print(f"  ok    {msg}")
 
 
+def check_model_access_gate(region: str, profile: str = "") -> str:
+    """If inference is refused, work out WHY - the fixes are very different.
+
+    'Operation not allowed' (ValidationException) is what a new-AWS-experience
+    project returns when the model has not been granted to the account. It looks
+    nothing like the older AccessDeniedException, and it is NOT the same as the
+    transient 'account is being verified' message.
+
+    Returns a short human-readable cause, or '' if nothing conclusive.
+    """
+    try:
+        import boto3
+    except ImportError:
+        return ""
+    try:
+        c = boto3.Session(profile_name=profile or None,
+                          region_name=region).client("bedrock")
+        offers = c.list_foundation_model_agreement_offers(
+            modelId="anthropic.claude-sonnet-4-6").get("offers", [])
+    except Exception:
+        return ""
+    if not offers:
+        return ""
+    # An offer exists but was never accepted -> the account has not been
+    # granted the model. Accepting it via the API is what the console does,
+    # but it refuses until the request form has been submitted.
+    try:
+        c.create_foundation_model_agreement(
+            offerToken=offers[0]["offerToken"], modelId="anthropic.claude-sonnet-4-6")
+        return "agreement accepted just now - re-run the probe"
+    except Exception as exc:
+        msg = str(exc)
+        if "request form" in msg.lower():
+            return "request-form"
+        if "already" in msg.lower():
+            return "already-accepted"
+        return f"agreement-blocked: {msg[:120]}"
+    return ""
+
+
 def read_bearer_token() -> str | None:
     """The Bedrock API key path: a bearer token in an env var, no IAM keys.
 
@@ -297,13 +337,37 @@ def main() -> int:
             print("  -> The key is malformed. Bedrock API keys must start with a")
             print("     specific prefix. Copy the whole key, with no whitespace or")
             print("     stray quotes, when setting the environment variable.")
-        elif "being verified" in low or "operation not allowed" in low:
+        elif "being verified" in low:
             print("  -> The ACCOUNT is still being verified, not a config problem.")
             print("     New AWS-experience accounts cannot invoke Bedrock until")
             print("     verification completes (AWS says under 2 hours). Credentials,")
             print("     region and model id are all fine - control-plane calls like")
             print("     list_foundation_models succeed. WAIT and re-run; do not")
             print("     re-request model access or switch regions, neither will help.")
+        elif "operation not allowed" in low:
+            cause = check_model_access_gate(args.region, profile)
+            if cause == "request-form":
+                print("  -> MODEL ACCESS NOT GRANTED. The account has an unaccepted")
+                print("     agreement for this model, and the API refuses to accept it")
+                print("     until the request form is submitted:")
+                print("       \"You have not filled out the request form. Fill out the")
+                print("        form before getting access.\"")
+                print()
+                print("     Fix (console, one time, ~2 minutes):")
+                print("       Bedrock console -> Model access -> Anthropic Claude")
+                print("       Sonnet 4.x -> Request access / Modify -> fill the use-case")
+                print("       form -> Submit. Then re-run this probe.")
+                print("     Use the region of the project (the one you signed up with).")
+            elif cause == "already-accepted":
+                print("  -> The agreement is already accepted, so this is a different")
+                print("     gate. Check the account plan / spend limit in AWS Settings.")
+            elif cause.startswith("agreement-blocked"):
+                print(f"  -> Model agreement could not be accepted: {cause[19:]}")
+            else:
+                print("  -> 'Operation not allowed' means the model is not granted to")
+                print("     this account. Open the Bedrock console in your project's")
+                print("     region -> Model access -> request access for the model you")
+                print("     want, fill out the form, then re-run this probe.")
         elif "accessdenied" in low or "not authorized" in low:
             print("  -> Model access is not granted for this model in this region.")
             print("     Console -> Bedrock -> Model access -> Modify -> tick Anthropic")
