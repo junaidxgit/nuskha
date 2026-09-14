@@ -23,6 +23,12 @@ boto3>=1.43.0
 #     credential provider requires an additional dependency" ---
 botocore[crt]>=1.43.0
 
+# --- required ONLY for `ask --ollama`, which runs a LIVE model on a local
+#     Ollama server. No AWS account, no API key, no network. Also needs the
+#     Ollama runtime itself (https://ollama.com) with a model pulled, e.g.
+#     `ollama pull qwen3.5:2b`. ---
+ollama>=0.4.0
+
 # --- data ingestion only (pipeline/). Not needed to run the agent or the
 #     deterministic commands, since the parsed JSONL is tracked in the repo. ---
 pdfplumber>=0.11.0

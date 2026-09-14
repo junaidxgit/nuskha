@@ -43,13 +43,28 @@ run a query, so a fresh clone works with nothing but the standard library.
 Two things worth knowing: the deterministic commands need **no third-party
 package and no credentials**, and `ask --offline` drives the real Strands loop
 with a scripted model, so the agent is reproducible without an AWS account.
-Drop `--offline` to use a real Bedrock model.
+
+To run the agent against a **live model**, you have two options. `--ollama` uses a
+local Ollama model — a real token stream and real tool calls, with no AWS account,
+no API key and no network:
+
+```bash
+ollama pull qwen3.5:2b                         # one-time, needs the Ollama runtime
+python -m nuskha.cli ask "what should atorvastatin 10mg cost?" --ollama
+```
+
+Or drop `--offline` and it uses Amazon Bedrock, which needs credentials **and**
+model access on the account:
+
+```bash
+python -m nuskha.cli ask "..." --profile <profile> --region <region>
+```
 
 ```bash
 python -m nuskha.cli check coldrif             # regulatory quality records
 python -m nuskha.cli report atorvastatin 10mg  # price + quality together
 python -m nuskha.cli check-bedrock             # diagnose AWS/Bedrock readiness
-python -m nuskha.cli ask "..."                 # real agent, needs Bedrock access
+python tools/bedrock_probe.py --region us-east-1 --profile <p>  # deeper: why it fails
 python ui/build_ui.py                          # regenerate ui/ and docs/ HTML
 python tests/test_agent_offline.py             # 19 checks, no credentials needed
 ```
