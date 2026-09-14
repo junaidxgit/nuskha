@@ -62,6 +62,39 @@ pharmacologist. Short sentences. No hedging, no filler, no emoji.
 """
 
 
+def build_bedrock_model(profile: str | None = None, region: str | None = None,
+                        model_id: str | None = None):
+    """Build a Bedrock model, honouring env vars so no code edit is needed.
+
+    Strands' default is us-west-2, but a new-AWS-experience project is pinned to
+    its own region (and the SCPs only exempt a handful of Bedrock actions
+    elsewhere), so the region has to be settable without touching this file.
+
+    Resolution order, each falling back to the next:
+      profile  -> arg, then AWS_PROFILE
+      region   -> arg, then AWS_REGION / AWS_DEFAULT_REGION, then Strands' default
+      model_id -> arg, then BEDROCK_MODEL_ID, then Strands' default
+
+    Note: BedrockModel rejects `region_name` and `boto_session` together, so the
+    region is always carried on the session.
+    """
+    import os
+
+    import boto3
+    from strands.models import BedrockModel
+
+    profile = profile or os.environ.get("AWS_PROFILE") or None
+    region = (region or os.environ.get("AWS_REGION")
+              or os.environ.get("AWS_DEFAULT_REGION") or None)
+
+    session = boto3.Session(profile_name=profile, region_name=region)
+
+    kwargs: dict = {"boto_session": session}
+    if model_id or os.environ.get("BEDROCK_MODEL_ID"):
+        kwargs["model_id"] = model_id or os.environ["BEDROCK_MODEL_ID"]
+    return BedrockModel(**kwargs)
+
+
 def build_agent(model=None, callback_handler=None) -> Agent:
     """Create the agent.
 

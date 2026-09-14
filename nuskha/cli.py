@@ -294,6 +294,20 @@ def main(argv: list[str] | None = None) -> int:
         "--trace", action="store_true",
         help="print each tool the agent dispatches (to stderr) as the loop runs.",
     )
+    p4.add_argument(
+        "--profile", default="",
+        help="AWS profile for the live Bedrock path (default: $AWS_PROFILE).",
+    )
+    p4.add_argument(
+        "--region", default="",
+        help="AWS region for the live Bedrock path (default: $AWS_REGION). "
+             "A new-AWS-experience project must use its own region.",
+    )
+    p4.add_argument(
+        "--model", default="",
+        help="override the Bedrock model id (default: $BEDROCK_MODEL_ID, then "
+             "Strands' default).",
+    )
 
     p5 = sub.add_parser("json", help="raw query output, for piping")
     p5.add_argument("salt")
@@ -324,25 +338,37 @@ def main(argv: list[str] | None = None) -> int:
             # callback handler would otherwise print the same text twice.
             from nuskha.mock_model import ScriptedModel
             model = ScriptedModel(verbose=False)
+        else:
+            # Live Bedrock. Built explicitly so the profile/region can be chosen
+            # without editing code - a new-AWS-experience project is pinned to
+            # its own region, and Strands' default (us-west-2) is usually wrong.
+            try:
+                from nuskha.agent import build_bedrock_model
+                model = build_bedrock_model(profile=args.profile or None,
+                                            region=args.region or None,
+                                            model_id=args.model or None)
+            except Exception as exc:
+                print(f"could not build the Bedrock model: {type(exc).__name__}: {exc}",
+                      file=sys.stderr)
+                return 2
         try:
             from nuskha.agent import ask
         except Exception as exc:
             print(f"could not load the agent: {exc}", file=sys.stderr)
             return 2
-        # Pass no model for the real (Bedrock) path and no handler at all, so the
-        # answer comes back through the return value only. Strands' *default*
-        # callback handler streams to stdout, which would print the answer a
-        # second time when the CLI also prints the return value. An explicit
-        # no-op handler keeps stdout owned by this function.
+        # Pass an explicit no-op handler so the answer comes back through the
+        # return value only. Strands' *default* callback handler streams to
+        # stdout, which would print the answer a second time when the CLI also
+        # prints the return value.
         try:
             answer = ask(args.question, model=model,
                          callback_handler=_traced() if args.trace else _silent)
         except Exception as exc:
             print(f"\nagent run failed: {type(exc).__name__}: {exc}", file=sys.stderr)
-            print("Bedrock needs AWS credentials. Re-run with --offline to drive the "
-                  "same agent loop with a scripted model, or use the deterministic "
-                  "commands (price/check/report), which need no model.",
-                  file=sys.stderr)
+            print("Bedrock needs working credentials AND model access. Diagnose with "
+                  "`check-bedrock`, or run the same agent loop with no AWS at all "
+                  "using --offline. The deterministic commands (price/check/report) "
+                  "need no model either.", file=sys.stderr)
             return 1
         print(answer)
     return 0
