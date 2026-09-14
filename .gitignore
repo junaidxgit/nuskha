@@ -21,6 +21,7 @@ Thumbs.db
 *.html
 !ui/index.html
 !docs/index.html
+!docs/demo-slides.html
 wp.json
 
 # review scratch

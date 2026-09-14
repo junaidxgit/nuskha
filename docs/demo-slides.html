@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nuskha — demo slides</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --dim:#8b949e;
+    --green:#3fb950; --red:#f85149; --amber:#d29922; --blue:#58a6ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    overflow:hidden;
+  }
+  .slide{
+    position:absolute; inset:0;
+    display:none;
+    flex-direction:column;
+    justify-content:center;
+    padding:7vh 9vw;
+  }
+  .slide.on{display:flex}
+  h1{font-size:6.4vh;line-height:1.12;font-weight:700;letter-spacing:-.5px}
+  h2{font-size:4.6vh;line-height:1.2;font-weight:600;margin-bottom:3.2vh}
+  p{font-size:2.7vh;line-height:1.55;color:var(--dim)}
+  .lead{font-size:3.2vh;color:var(--ink);line-height:1.5}
+  .kicker{
+    font-size:1.9vh;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--blue);margin-bottom:2.4vh;font-weight:600;
+  }
+  .rule{height:2px;background:#21262d;margin:3.4vh 0}
+  ul{list-style:none;display:flex;flex-direction:column;gap:2.4vh}
+  li{font-size:3vh;line-height:1.45;padding-left:3.4vh;position:relative}
+  li:before{content:"—";position:absolute;left:0;color:var(--dim)}
+  .big{font-size:11vh;font-weight:700;letter-spacing:-2px;line-height:1}
+  .green{color:var(--green)} .red{color:var(--red)} .amber{color:var(--amber)}
+  .row{display:flex;gap:6vw;align-items:flex-start;margin-top:2vh}
+  .col{flex:1}
+  .label{font-size:2.1vh;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:1.2vh}
+  .mono{font-family:Consolas,"Cascadia Mono",monospace}
+  .card{
+    background:var(--panel);border:1px solid #21262d;border-radius:10px;
+    padding:3.2vh 3.4vh;
+  }
+  .note{
+    position:absolute;bottom:3.4vh;left:9vw;right:9vw;
+    font-size:2vh;color:#6e7681;
+  }
+  .prog{
+    position:absolute;bottom:1.6vh;left:9vw;font-size:1.7vh;color:#484f58;
+    letter-spacing:.12em;
+  }
+  .timeline{display:flex;gap:3vw;margin-top:3vh}
+  .tstep{flex:1}
+  .tdate{font-size:2.1vh;color:var(--blue);font-weight:600;letter-spacing:.06em}
+  .twhat{font-size:2.3vh;margin-top:.8vh;line-height:1.4}
+</style>
+</head>
+<body>
+
+<!-- 1 -->
+<section class="slide on">
+  <div class="kicker">Nuskha</div>
+  <h1>What is on your prescription,<br>and what it should cost.</h1>
+  <div class="rule"></div>
+  <p class="lead">Composition-first medicine pricing and regulatory batch records for India.</p>
+  <p style="margin-top:2.4vh">NPPA price ceiling &middot; Jan Aushadhi generic price &middot; CDSCO and WHO batch alerts — joined.</p>
+  <div class="note">Say: what it is, and who it's for. Do not name a brand.</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <div class="kicker">The problem</div>
+  <h1>Two weeks.</h1>
+  <div class="timeline">
+    <div class="tstep"><div class="tdate">30 SEP 2025</div><div class="twhat">WHO identifies a cluster of child fatalities in India</div></div>
+    <div class="tstep"><div class="tdate">8 OCT 2025</div><div class="twhat">India's drug regulator confirms diethylene glycol in three cough syrups</div></div>
+    <div class="tstep"><div class="tdate">13 OCT 2025</div><div class="twhat">The public alert finally goes out</div></div>
+  </div>
+  <div class="rule"></div>
+  <p class="lead">During those two weeks, prescriptions were still being filled.</p>
+  <div class="note">Say: reported between 14 and 24 children, all under five, Chhindwara district, Madhya Pradesh. Pause after this line.</div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <div class="kicker">Who it's for</div>
+  <h2>Anyone holding an Indian prescription.</h2>
+  <p>A parent, a patient, a caregiver. Two things are true about that piece of paper.</p>
+  <div class="rule"></div>
+  <ul>
+    <li>The brand prescribed is often <strong>several times</strong> the price of an identical composition — hospitals and pharmacies have commercial arrangements.</li>
+    <li>The batches that <strong>failed testing</strong> are already on a public government list. A list no patient has ever seen.</li>
+  </ul>
+  <div class="note">Say: why it matters — the information is public, but unreachable by the person holding the paper.</div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <div class="kicker">Live demo</div>
+  <h2>Switch to the terminal.</h2>
+  <div class="card mono" style="font-size:2.6vh">
+    python -m nuskha.cli price atorvastatin 10mg
+  </div>
+  <div class="rule"></div>
+  <p>Then the browser at <span class="mono">ui/index.html</span> — same input, same figures.</p>
+  <div class="note">Say: the salt, not the brand — Indian prescriptions already name the salt. Read the two numbers as they appear.</div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <div class="kicker">The demo that matters</div>
+  <h2>Switch back to the terminal.</h2>
+  <div class="card mono" style="font-size:2.6vh">
+    python -m nuskha.cli check coldrif
+  </div>
+  <div class="rule"></div>
+  <p>Two independent authorities, kept separate. Batch <strong>SR-13</strong>, reason <strong>Adulterated</strong>, October 2025 — plus the WHO international alert.</p>
+  <div class="note">Say: a tool built only on the laboratory-failure list would have shown this parent nothing. That is why there are two tiers.</div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <div class="kicker">How it works</div>
+  <h2>Four official sources. Three tools.</h2>
+  <div class="row">
+    <div class="col">
+      <div class="label">Sources</div>
+      <ul>
+        <li>CDSCO — batch failures</li>
+        <li>WHO — recalls, contamination</li>
+        <li>NPPA — legally binding ceiling</li>
+        <li>Jan Aushadhi — generic price</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="label">Records</div>
+      <ul>
+        <li>3,591 batch records, Jan 2024 – Jul 2026</li>
+        <li>15 WHO alerts</li>
+        <li>349 ceiling prices</li>
+        <li>1,904 generic prices</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rule"></div>
+  <p>A Strands Agents agent with three tools: find alternatives, get the price, check the quality record.</p>
+  <div class="note">Show docs/architecture.svg here if you have it open.</div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <div class="kicker">Why you can trust it</div>
+  <h2>Every claim carries its source.</h2>
+  <ul>
+    <li>The authority levels <strong>never blend</strong> — a regulator's record is labelled a regulator's record.</li>
+    <li>An NSQ finding is <strong>batch-specific</strong>: one batch, one date, one stated reason. Never a statement about the company.</li>
+    <li>Absence of a record is <strong>not</strong> evidence of quality — only sampled batches are tested.</li>
+    <li>It <strong>never</strong> tells you to switch medication. It shows options; your prescriber decides.</li>
+  </ul>
+  <div class="note">Say the therapeutic-equivalence caveat here, once.</div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <div class="kicker">Close</div>
+  <div class="row" style="margin-top:0">
+    <div class="col">
+      <div class="label">Legal maximum &middot; NPPA</div>
+      <div class="big">&#8377;4.94</div>
+      <p style="margin-top:1vh">per tablet</p>
+    </div>
+    <div class="col">
+      <div class="label">Government generic &middot; Jan Aushadhi</div>
+      <div class="big green">&#8377;0.88</div>
+      <p style="margin-top:1vh">per tablet</p>
+    </div>
+  </div>
+  <div class="rule"></div>
+  <p class="lead">Same medicine. Both official. <span class="amber">5.6&times;</span> apart.</p>
+  <p style="margin-top:2.2vh">The information was always public. Nobody holding a prescription could reach it.</p>
+  <div class="note">End on this frame. Do not round 5.6 up to 6.</div>
+</section>
+
+<div class="prog"><span id="p">1</span> / 8 &nbsp;&middot;&nbsp; &larr; &rarr; to move &nbsp;&middot;&nbsp; F for fullscreen</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const show = n => {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    document.getElementById('p').textContent = i + 1;
+  };
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); show(i + 1); }
+    if (e.key === 'ArrowLeft'  || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+    if (e.key.toLowerCase() === 'f') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+  });
+  addEventListener('click', () => show(i + 1));
+</script>
+</body>
+</html>
