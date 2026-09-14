@@ -23,10 +23,11 @@ portable `gh` in `.tools/` (the keyring credential became readable on the second
 
 Required for submission, and **separate from an AWS account**.
 
-- [x] Builder ID created: **@junxaws**
-- Note: Devpost asks for the **email address** associated with the Builder ID, not the
-  Builder Center alias. If `@junxaws` is the alias, paste the signup email in the form and
-  put `@junxaws` in the "AWS Builder Center alias / profile" field if one is offered.
+- [x] Builder Center alias: **@junxaws**
+- [x] Builder ID / signup email: **mohamedjunaidm6@gmail.com**
+
+Paste the **email** into Devpost's "AWS Builder ID" field -- that is the actual identifier.
+`@junxaws` is the public Builder Center alias, which is a different thing.
 
 ## 3. Bedrock (optional but lifts the score)
 
@@ -61,7 +62,7 @@ Must be public on YouTube or Vimeo, and must cover (1) the problem, (2) who it's
 - [ ] Public repo URL
 - [ ] Architecture diagram: `docs/architecture.svg`
 - [ ] Video URL
-- [x] AWS Builder ID: **@junxaws**
+- [x] AWS Builder ID: **mohamedjunaidm6@gmail.com** (alias `@junxaws`)
 - [ ] Optional live demo link
 - [ ] Submitted **Sep 14 evening**
 
